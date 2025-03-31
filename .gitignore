@@ -1,0 +1,30 @@
+# 忽略Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 忽略环境文件
+.env
+.venv
+env/
+venv/
+ENV/
+
+# 忽略IDE文件
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 忽略系统文件
+.DS_Store
+Thumbs.db
+
+# 忽略数据目录中的文件，但保留目录结构
+/data/db/*
+!/data/db/.gitkeep
+/data/uploads/*
+!/data/uploads/.gitkeep
+
+# 忽略日志文件
+*.log
