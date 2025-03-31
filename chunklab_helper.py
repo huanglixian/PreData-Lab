@@ -113,22 +113,104 @@ def reset_stuck_documents():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
+        # 首先列出所有文档
+        cursor.execute("SELECT id, filename, status FROM documents")
+        all_docs = cursor.fetchall()
+        if all_docs:
+            print("\n所有文档列表：")
+            for doc_id, doc_filename, doc_status in all_docs:
+                print(f"- ID: {doc_id}, 状态: {doc_status}, 文件名: {doc_filename}")
+        
         # 查询处于"处理中"状态的文档
-        cursor.execute("SELECT id, title FROM documents WHERE status = '处理中'")
+        cursor.execute("SELECT id, filename FROM documents WHERE status = '处理中'")
         stuck_docs = cursor.fetchall()
         
+        # 如果没有发现卡住的文档，询问是否手动指定要重置的文档ID
         if not stuck_docs:
-            logger.info("没有处于'处理中'状态的文档")
-            conn.close()
-            return True
+            print("\n没有发现状态为'处理中'的文档。")
+            
+            # 询问是否要查看已切块文档
+            check_chunked = input("是否要列出并重置某个'已切块'状态的文档？(y/n): ").strip().lower()
+            if check_chunked == 'y':
+                # 查询"已切块"状态的文档
+                cursor.execute("SELECT id, filename FROM documents WHERE status = '已切块'")
+                chunked_docs = cursor.fetchall()
+                
+                if not chunked_docs:
+                    print("没有'已切块'状态的文档。")
+                else:
+                    print("\n'已切块'状态的文档列表：")
+                    for i, (doc_id, doc_filename) in enumerate(chunked_docs, 1):
+                        print(f"{i}. ID: {doc_id}, 文件名: {doc_filename}")
+                    
+                    doc_choice = input("\n请选择要重置的文档序号 (输入数字): ").strip()
+                    try:
+                        choice_idx = int(doc_choice) - 1
+                        if 0 <= choice_idx < len(chunked_docs):
+                            doc_id = chunked_docs[choice_idx][0]
+                            print(f"选择了文档: ID={doc_id}, 文件名={chunked_docs[choice_idx][1]}")
+                            confirm = input(f"确认将此文档状态重置为'未切块'？(y/n): ").strip().lower()
+                            
+                            if confirm == 'y':
+                                cursor.execute("UPDATE documents SET status = '未切块' WHERE id = ?", (doc_id,))
+                                conn.commit()
+                                print(f"已将文档 {doc_id} 的状态重置为'未切块'")
+                        else:
+                            print("无效的选择！")
+                    except ValueError:
+                        print("请输入有效的数字！")
+            
+            # 询问是否手动指定ID
+            manual_reset = input("是否要手动指定文档ID进行重置？(y/n): ").strip().lower()
+            if manual_reset == 'y':
+                doc_id = input("请输入要重置的文档ID: ").strip()
+                try:
+                    doc_id = int(doc_id)
+                    # 检查文档是否存在
+                    cursor.execute("SELECT id, filename, status FROM documents WHERE id = ?", (doc_id,))
+                    doc = cursor.fetchone()
+                    
+                    if not doc:
+                        print(f"未找到ID为 {doc_id} 的文档！")
+                        conn.close()
+                        return False
+                    
+                    print(f"\n找到文档: ID={doc[0]}, 状态={doc[2]}, 文件名={doc[1]}")
+                    confirm = input(f"确认将此文档状态重置为'未切块'？(y/n): ").strip().lower()
+                    
+                    if confirm == 'y':
+                        cursor.execute("UPDATE documents SET status = '未切块' WHERE id = ?", (doc_id,))
+                        conn.commit()
+                        print(f"已将文档 {doc_id} 的状态重置为'未切块'")
+                except ValueError:
+                    print("请输入有效的数字ID！")
+                    conn.close()
+                    return False
+            else:
+                print("未执行任何重置操作。")
+                conn.close()
+                return True
+        else:
+            # 有处于"处理中"状态的文档
+            print(f"\n发现 {len(stuck_docs)} 个处于'处理中'状态的文档:")
+            for doc_id, doc_filename in stuck_docs:
+                print(f"- ID: {doc_id}, 文件名: {doc_filename}")
+            
+            confirm = input("确认将这些文档状态重置为'未切块'？(y/n): ").strip().lower()
+            
+            if confirm == 'y':
+                cursor.execute("UPDATE documents SET status = '未切块' WHERE status = '处理中'")
+                conn.commit()
+                print(f"已重置 {len(stuck_docs)} 个卡住的文档状态")
         
-        # 更新文档状态为"未切块"
-        cursor.execute("UPDATE documents SET status = '未切块' WHERE status = '处理中'")
-        conn.commit()
-        
-        logger.info(f"已重置 {len(stuck_docs)} 个卡住的文档状态:")
-        for doc_id, doc_title in stuck_docs:
-            logger.info(f"- ID: {doc_id}, 标题: {doc_title}")
+        # 提示重启服务器
+        print("\n注意: 为确保内存中的任务状态被清除，请重启服务器.")
+        restart = input("是否立即重启服务器？(y/n): ").strip().lower()
+        if restart == 'y':
+            print("正在重启服务器...")
+            restart_server()
+        else:
+            print("请稍后手动重启服务器，以确保任务状态被彻底清除.")
         
         conn.close()
         return True

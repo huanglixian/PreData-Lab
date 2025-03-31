@@ -143,44 +143,36 @@ class ChunkService:
         CHUNK_TASKS[document_id] = {"status": "processing", "progress": 0}
         
         try:
+            logger.info(f"开始处理文档 {document_id} 的切块任务: strategy={chunk_strategy}, size={chunk_size}, overlap={overlap}")
+            
+            # 检查文档和文件
             document = db.query(Document).filter(Document.id == document_id).first()
-            if not document:
-                CHUNK_TASKS[document_id] = {"status": "error", "message": "文档不存在"}
+            if not document or not os.path.exists(document.filepath):
+                error_msg = "文档不存在" if not document else "文件不存在或已被删除"
+                logger.error(f"文档 {document_id} {error_msg}")
+                CHUNK_TASKS[document_id] = {"status": "error", "message": error_msg}
                 return
-                
-            # 检查文件是否存在
-            if not os.path.exists(document.filepath):
-                CHUNK_TASKS[document_id] = {"status": "error", "message": "文件不存在或已被删除"}
-                return
-                
+            
             # 设置任务状态为处理中
             CHUNK_TASKS[document_id]["progress"] = 10
             
             # 选择切块策略
             strategy = self._get_strategy_instance(chunk_strategy)
             if not strategy:
+                logger.error(f"不支持的切块策略: {chunk_strategy}")
                 CHUNK_TASKS[document_id] = {"status": "error", "message": f"不支持的切块策略: {chunk_strategy}"}
                 return
             
+            # 执行切块处理
             start_time = time.time()
-            
-            # 获取切块结果 - 使用统一入口方法
-            chunk_results = strategy.process_document(
-                document.filepath,
-                chunk_size,
-                overlap
-            )
-            
+            chunk_results = strategy.process_document(document.filepath, chunk_size, overlap)
             processing_time = time.time() - start_time
-            logger.info(f"切块处理时间: {processing_time:.2f}秒")
             
+            logger.info(f"切块处理完成，耗时: {processing_time:.2f}秒，共产生 {len(chunk_results)} 个块")
             CHUNK_TASKS[document_id]["progress"] = 50
-            logger.info(f"切块完成，共产生 {len(chunk_results)} 个块")
             
-            # 删除现有的切块
+            # 保存结果
             db.query(Chunk).filter(Chunk.document_id == document_id).delete()
-            
-            # 保存切块参数
             document.last_chunk_params = {
                 "strategy": chunk_strategy,
                 "size": chunk_size,
@@ -197,17 +189,16 @@ class ChunkService:
                     chunk_size=chunk_size,
                     overlap=overlap,
                     chunk_strategy=chunk_strategy,
-                    chunk_metadata=chunk_data.get("meta", {})  # 使用get方法获取meta，如果不存在则返回空字典
+                    chunk_metadata=chunk_data.get("meta", {})
                 )
                 db.add(chunk)
                 
-                # 更新进度
-                if i % max(1, len(chunk_results) // 10) == 0:
+                # 每处理20%的块更新一次进度
+                if i % max(1, len(chunk_results) // 5) == 0:
                     progress = 50 + int(i / len(chunk_results) * 40)
                     CHUNK_TASKS[document_id]["progress"] = min(progress, 90)
             
             db.commit()
-            logger.info(f"文档 {document_id} 切块成功保存到数据库")
             CHUNK_TASKS[document_id] = {"status": "success", "progress": 100}
         
         except Exception as e:
@@ -223,7 +214,7 @@ class ChunkService:
                     document.status = "未切块"
                     db.commit()
             except Exception:
-                pass 
+                pass
 
     def _get_strategy_instance(self, strategy_name: str) -> BaseChunkStrategy:
         """
