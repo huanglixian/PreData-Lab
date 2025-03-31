@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}切块实验室 - 查看切块{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chunk-list {
+        background-color: var(--card-bg);
+        border-radius: 6px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 2rem;
+    }
+    
+    .chunk-item {
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        padding: 1rem 0;
+    }
+    
+    .chunk-item:last-child {
+        border-bottom: none;
+    }
+    
+    .chunk-sequence {
+        font-weight: bold;
+        min-width: 3rem;
+    }
+    
+    .chunk-content {
+        white-space: pre-wrap;
+        font-family: monospace;
+        background-color: var(--light-bg);
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        border-left: 3px solid var(--accent-light);
+    }
+    
+    .chunk-metadata {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+    
+    .document-info {
+        margin-bottom: 1.5rem;
+    }
+    
+    .chunk-params {
+        background-color: var(--light-bg);
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        border-left: 3px solid var(--accent-light);
+    }
+    
+    .param-item {
+        display: inline-block;
+        margin-right: 1.5rem;
+    }
+    
+    .param-label {
+        font-weight: 600;
+        margin-right: 0.5rem;
+        color: var(--primary-color);
+    }
+    
+    h2, h4, h6 {
+        color: var(--primary-color);
+    }
+    
+    .dropdown-item:active {
+        background-color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>查看切块列表</h2>
+            <div>
+                <a href="/chunklab/documents/{{ document.id }}/chunk" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-cut me-2"></i>重新切块
+                </a>
+                <a href="/chunklab/index" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>返回切块实验室
+                </a>
+            </div>
+        </div>
+        
+        <!-- 文档信息 -->
+        <div class="document-info alert alert-info">
+            <h5 class="mb-2">{{ document.filename }}</h5>
+            <small class="text-muted">上传时间：{{ document.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+        </div>
+        
+        <!-- 切块参数 -->
+        {% if document.last_chunk_params %}
+        <div class="chunk-params">
+            <h6 class="mb-3"><i class="fas fa-cog me-2"></i>切块参数</h6>
+            <div>
+                <div class="param-item">
+                    <span class="param-label">策略:</span>
+                    {% for strategy in chunk_strategies %}
+                        {% if strategy.name == document.last_chunk_params.strategy %}
+                            {{ strategy.display_name }}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="param-item">
+                    <span class="param-label">切块大小:</span>
+                    {{ document.last_chunk_params.size }}
+                </div>
+                <div class="param-item">
+                    <span class="param-label">重叠度:</span>
+                    {{ document.last_chunk_params.overlap }}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 切块列表 -->
+        <div class="chunk-list">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">
+                    <i class="fas fa-list me-2"></i>切块列表
+                    <span class="text-muted fs-6 ms-2">(共{{ chunks|length }}个切块)</span>
+                </h4>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-download me-1"></i>导出
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                        <li><a class="dropdown-item" href="#" id="copyToClipboard"><i class="fas fa-copy me-2"></i>复制到剪贴板</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            {% if chunks %}
+                <div class="chunks-container">
+                    {% for chunk in chunks %}
+                    <div class="chunk-item">
+                        <div class="d-flex">
+                            <span class="chunk-sequence">#{{ chunk.sequence }}</span>
+                            <div class="flex-grow-1">
+                                {% if chunk.chunk_metadata and chunk.chunk_metadata.heading %}
+                                <div class="chunk-heading">
+                                    <i class="fas fa-heading me-1"></i>
+                                    <span>所属标题: {{ chunk.chunk_metadata.heading }}</span>
+                                </div>
+                                {% endif %}
+
+                                <div class="row">
+                                    <div class="{% if chunk.chunk_metadata and chunk.chunk_metadata is mapping and chunk.chunk_metadata.keys()|list|length > 0 %}col-md-7 col-lg-6{% else %}col-12{% endif %}">
+                                        <div class="chunk-content">{{ chunk.content }}</div>
+                                    </div>
+                                    
+                                    {% if chunk.chunk_metadata and chunk.chunk_metadata is mapping and chunk.chunk_metadata.keys()|list|length > 0 %}
+                                    <div class="col-md-5 col-lg-6">
+                                        <div class="card h-100 bg-light">
+                                            <div class="card-header py-2 bg-light">
+                                                <h6 class="mb-0 fs-6"><i class="fas fa-info-circle me-1"></i>元数据信息</h6>
+                                            </div>
+                                            <div class="card-body py-2">
+                                                <div class="meta-content" style="font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto;">
+                                                    <table class="table table-sm table-borderless mb-0">
+                                                        <tbody>
+                                                            {% for key, value in chunk.chunk_metadata.items() %}
+                                                            {% if key != 'heading' %}  <!-- 已经在上面显示了heading -->
+                                                            <tr>
+                                                                <td style="width: 35%; color: var(--primary-color); vertical-align: top;">{{ key }}</td>
+                                                                <td style="word-break: break-word; max-width: 300px;">
+                                                                    {% if value is mapping or value is sequence and value is not string %}
+                                                                        <pre class="mb-0" style="font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">{{ value|tojson(indent=2) }}</pre>
+                                                                    {% else %}
+                                                                        <span style="word-break: break-word;">{{ value }}</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                            </tr>
+                                                            {% endif %}
+                                                            {% endfor %}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="chunk-metadata mt-1">
+                                    <span>字符数: {{ chunk.content|length }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    没有找到切块数据。请返回上一页重新进行切块操作。
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 复制到剪贴板功能
+        const copyBtn = document.getElementById('copyToClipboard');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // 获取所有切块内容
+                const chunks = [];
+                document.querySelectorAll('.chunk-content').forEach(function(element) {
+                    chunks.push(element.textContent);
+                });
+                
+                const textToCopy = chunks.join('\n\n---\n\n');
+                
+                navigator.clipboard.writeText(textToCopy).then(function() {
+                    // 成功复制
+                    showToast('success', '切块内容已复制到剪贴板');
+                }).catch(function(err) {
+                    // 复制失败
+                    console.error('复制失败:', err);
+                    showToast('error', '复制失败，请手动选择内容并复制');
+                });
+            });
+        }
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}预数据实验室 - 数据处理工具集{% endblock %}</title>
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📁</text></svg>" type="image/svg+xml">
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.18/dist/sweetalert2.min.css">
+    <style>
+        :root {
+            /* 主色深蓝 */
+            --primary-color: #2c3e50;
+            /* 次要色深灰蓝 */
+            --secondary-color: #34495e;
+            /* 强调色中蓝 */
+            --accent-color: #3a6ea5;
+            /* 强调色浅色 */
+            --accent-light: #b8c6db;
+            /* 浅背景 */
+            --light-bg: #f0f2f5;
+            /* 卡片背景 */
+            --card-bg: #ffffff;
+            /* 文本颜色 */
+            --text-color: #333333;
+            /* 文本次要颜色 */
+            --text-muted: #5d6778;
+            /* 成功色 */
+            --success-color: #2a5e4b;
+            /* 警告色 */
+            --warning-color: #7d5c28;
+            /* 信息色 */
+            --info-color: #2b5876;
+            /* 错误色 */
+            --danger-color: #732626;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        
+        .card {
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1.5rem;
+            border: none;
+            background-color: var(--card-bg);
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 6px 6px 0 0 !important;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .btn-info {
+            background-color: var(--info-color);
+            border-color: var(--info-color);
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background-color: #356b91;
+            border-color: #356b91;
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: var(--danger-color);
+            border-color: var(--danger-color);
+        }
+        
+        .btn-danger:hover {
+            background-color: #8f3030;
+            border-color: #8f3030;
+        }
+        
+        .navbar {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            background-color: var(--primary-color) !important;
+        }
+        
+        footer {
+            background-color: var(--primary-color);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 1.5rem 0;
+            margin-top: 2rem;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        
+        .content-container {
+            min-height: calc(100vh - 174px);
+            padding: 2rem 0;
+        }
+        
+        /* 状态样式 */
+        .status-chunked {
+            background-color: rgba(42, 94, 75, 0.15);
+            color: var(--success-color);
+        }
+        
+        .status-pending {
+            background-color: rgba(125, 92, 40, 0.15);
+            color: var(--warning-color);
+        }
+        
+        .status-processing {
+            background-color: rgba(43, 88, 118, 0.15);
+            color: var(--info-color);
+        }
+        
+        /* 主要突出点 */
+        .chunk-sequence {
+            color: var(--accent-color) !important;
+        }
+        
+        .chunk-heading {
+            color: var(--accent-color) !important;
+        }
+        
+        .document-name {
+            color: var(--accent-color) !important;
+        }
+        
+        /* 表单元素 */
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 0.25rem rgba(58, 110, 165, 0.25);
+        }
+        
+        .progress-bar {
+            background-color: var(--accent-color);
+        }
+        
+        .alert-info {
+            background-color: rgba(43, 88, 118, 0.15);
+            border-color: rgba(43, 88, 118, 0.4);
+            color: var(--info-color);
+        }
+        
+        .alert-warning {
+            background-color: rgba(125, 92, 40, 0.15);
+            border-color: rgba(125, 92, 40, 0.4);
+            color: var(--warning-color);
+        }
+        
+        /* 文本颜色 */
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+        
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-robot me-2"></i>PreData Lab - 数据实验室
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">
+                            <i class="fas fa-home me-1"></i>首页
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- 内容区域 -->
+    <div class="container content-container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- 页脚 -->
+    <footer>
+        <div class="container">
+            <p>&copy; {{ now().year }} PreDataLab - 数据治理小组 - 工具集</p>
+        </div>
+    </footer>
+    
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.18/dist/sweetalert2.min.js"></script>
+    <script>
+        // 通用确认删除函数
+        function confirmDelete(url, itemName) {
+            Swal.fire({
+                title: '确认删除',
+                text: `确定要删除"${itemName}"吗？此操作不可恢复！`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#732626',
+                cancelButtonColor: '#34495e',
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(url, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '已删除!',
+                            text: data.message || '删除成功',
+                            confirmButtonColor: '#2c3e50'
+                        }).then(() => {
+                            window.location.reload();
+                        });
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: '删除失败!',
+                            text: '发生错误: ' + error,
+                            confirmButtonColor: '#2c3e50'
+                        });
+                    });
+                }
+            });
+        }
+        
+        // 通用Toast提示
+        function showToast(icon, title) {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                customClass: {
+                    popup: 'colored-toast'
+                }
+            });
+            
+            Toast.fire({
+                icon: icon,
+                title: title
+            });
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

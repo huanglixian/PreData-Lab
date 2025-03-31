@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}预数据实验室 - 首页{% endblock %}
+
+{% block extra_css %}
+<style>
+    .lab-container {
+        background-color: var(--card-bg);
+        border-radius: 6px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .lab-card {
+        background-color: var(--light-bg);
+        border-radius: 8px;
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        height: 100%;
+        overflow: hidden;
+    }
+    
+    .lab-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    
+    .lab-card.disabled {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+    
+    .lab-icon {
+        width: 64px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: var(--primary-color);
+        color: white;
+        font-size: 1.8rem;
+        margin: 0 auto 1.5rem;
+    }
+    
+    .lab-card-header {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem;
+        text-align: center;
+        font-weight: 600;
+    }
+    
+    .lab-card-body {
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    .lab-description {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+        height: 60px;
+    }
+    
+    h2 {
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>预数据实验室</h2>
+        </div>
+        
+        <div class="lab-container">
+            <div class="row g-4">
+                <!-- 切块实验室 -->
+                <div class="col-md-4">
+                    <div class="lab-card">
+                        <div class="lab-card-header">
+                            <i class="fas fa-cut me-2"></i>切块实验室
+                        </div>
+                        <div class="lab-card-body">
+                            <div class="lab-icon">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                            <h5 class="card-title">ChunkLab</h5>
+                            <p class="lab-description">将各种格式的文档切分为适合嵌入的文本块，支持多种切块策略和参数设置。</p>
+                            <a href="/chunklab/index" class="btn btn-primary">
+                                <i class="fas fa-arrow-right me-2"></i>进入实验室
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 嵌入实验室 (现在排第二) -->
+                <div class="col-md-4">
+                    <div class="lab-card disabled">
+                        <div class="lab-card-header">
+                            <i class="fas fa-vector-square me-2"></i>嵌入实验室
+                        </div>
+                        <div class="lab-card-body">
+                            <div class="lab-icon">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            <h5 class="card-title">EmbedLab</h5>
+                            <p class="lab-description">将文本进行向量化处理，测试不同嵌入模型的效果并存储到向量数据库。</p>
+                            <button class="btn btn-secondary" disabled>
+                                <i class="fas fa-clock me-2"></i>开发中
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- OCR实验室 (现在排第三) -->
+                <div class="col-md-4">
+                    <div class="lab-card disabled">
+                        <div class="lab-card-header">
+                            <i class="fas fa-file-alt me-2"></i>OCR实验室
+                        </div>
+                        <div class="lab-card-body">
+                            <div class="lab-icon">
+                                <i class="fas fa-eye"></i>
+                            </div>
+                            <h5 class="card-title">OcrLab</h5>
+                            <p class="lab-description">测试和比较不同的OCR识别方法，优化文档文本提取效果。</p>
+                            <button class="btn btn-secondary" disabled>
+                                <i class="fas fa-clock me-2"></i>开发中
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
