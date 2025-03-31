@@ -2,6 +2,7 @@
 
 预数据实验室（PreDataLab）是一个专为RAG（检索增强生成）系统设计的前置数据处理工具集，旨在提供文档处理、OCR识别和向量嵌入等核心功能的开发和测试环境。
 
+
 ## - 项目概述
 
 RAG系统的效果很大程度上依赖于数据的预处理质量。预数据实验室提供了一套工具，让开发者可以更灵活地处理和优化RAG系统的输入数据，包括：
@@ -9,6 +10,27 @@ RAG系统的效果很大程度上依赖于数据的预处理质量。预数据�
 - **文档切块（ChunkLab）**：将各种格式的文档切分为适合嵌入的文本块
 - **OCR识别（OcrLab）**：测试和比较不同的OCR识别方法，优化文档文本提取
 - **向量嵌入（EmbedLab）**：将文本进行向量化处理，测试不同嵌入模型的效果
+
+
+## - 快速上手
+
+迫不及待想要尝试？👉 查看我们的[快速上手指南](./guide/QuickStart.md)，只需几分钟即可启动并运行预数据实验室，当然，首先你要Fork我这个仓库！
+
+```bash
+# 创建虚拟环境并激活
+python -m venv predatalab
+source predatalab/bin/activate  # Linux/macOS
+# 或
+predatalab\Scripts\activate     # Windows
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动应用
+python run.py
+```
+
+更多详细步骤请参考[快速上手指南](./guide/QuickStart.md)。
 
 
 ## - 核心功能
