@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}切块实验室 - 切块页面{% endblock %}
+{% block title %}切块实验室 - 文档切块{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -60,7 +60,22 @@
         color: var(--text-muted);
     }
     
-    h2, h4 {
+    .document-info {
+        margin-bottom: 1.5rem;
+    }
+    
+    .param-item {
+        display: inline-block;
+        margin-right: 1.5rem;
+    }
+    
+    .param-label {
+        font-weight: 600;
+        margin-right: 0.5rem;
+        color: var(--primary-color);
+    }
+    
+    h2, h4, h6 {
         color: var(--primary-color);
     }
     
@@ -68,6 +83,10 @@
         background-color: rgba(43, 88, 118, 0.15);
         border-color: rgba(43, 88, 118, 0.4);
         color: var(--info-color);
+    }
+    
+    .dropdown-item:active {
+        background-color: var(--primary-color);
     }
 </style>
 {% endblock %}
@@ -79,7 +98,7 @@
             <h2>文档切块</h2>
             <div class="d-flex align-items-center">
                 <div class="dropdown me-3">
-                    <button class="btn btn-outline-info dropdown-toggle" type="button" id="strategyInfoDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="strategyInfoDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-info-circle me-1"></i>可用算法列表
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="strategyInfoDropdown" style="min-width: 300px; max-width: 400px; max-height: 70vh; overflow-y: auto;">
@@ -136,7 +155,7 @@
                            value="{{ default_overlap }}" min="0" required>
                     <div class="invalid-feedback">重叠度必须大于等于0且小于切块大小</div>
                 </div>
-                <div class="col-12 mt-4">
+                <div class="col-12 mt-3">
                     <button type="submit" class="btn btn-primary" id="submitButton">
                         <i class="fas fa-cut me-2"></i>开始切块
                     </button>
@@ -156,46 +175,119 @@
         </div>
         
         <!-- 切块列表 -->
-        <div class="chunk-list">
-            <h4 class="mb-4">切块列表</h4>
+        <div class="chunk-list mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="mb-0">
+                    <i class="fas fa-list me-2"></i>切块列表
+                </h4>
+                {% if chunks and chunks|length > 0 %}
+                <button type="button" class="btn btn-sm btn-info" 
+                        data-bs-toggle="modal" data-bs-target="#toDifyModal"
+                        data-document-id="{{ document.id }}">
+                    <i class="fas fa-cloud-upload-alt me-1"></i>ToDify
+                </button>
+                {% endif %}
+            </div>
+            
+            {% if document.status == '已切块' and document.last_chunk_params %}
+            <div class="mb-3 text-muted small">
+                <i class="fas fa-info-circle me-2"></i>
+                {% if chunks %}
+                <span>共{{ chunks|length }}个切块</span>
+                <span class="mx-2">|</span>
+                {% endif %}
+                <span>策略:</span>
+                {% for strategy in chunk_strategies %}
+                    {% if strategy.name == document.last_chunk_params.strategy %}
+                        {{ strategy.display_name }}
+                    {% endif %}
+                {% endfor %}
+                <span class="mx-2">|</span>
+                <span>切块大小: {{ document.last_chunk_params.size }}</span>
+                <span class="mx-2">|</span>
+                <span>重叠度: {{ document.last_chunk_params.overlap }}</span>
+            </div>
+            {% endif %}
+            
             <div id="chunkResults">
-                {% if document.status == '已切块' %}
-                <div class="chunks-container">
-                    {% for chunk in chunks %}
-                    <div class="chunk-item">
-                        <div class="d-flex">
-                            <span class="chunk-sequence">#{{ chunk.sequence }}</span>
-                            <div class="flex-grow-1">
-                                {% if chunk.chunk_metadata and chunk.chunk_metadata.heading %}
-                                <div class="chunk-heading">
-                                    <i class="fas fa-heading me-1"></i>
-                                    <span>所属标题: {{ chunk.chunk_metadata.heading }}</span>
-                                </div>
-                                {% endif %}
-                                <div class="chunk-content">{{ chunk.content }}</div>
-                                <div class="chunk-metadata mt-1">
-                                    <span>字符数: {{ chunk.content|length }}</span>
+                {% if chunks and chunks|length > 0 %}
+                    <div class="chunks-container">
+                        {% for chunk in chunks %}
+                        <div class="chunk-item">
+                            <div class="d-flex">
+                                <span class="chunk-sequence">#{{ chunk.sequence }}</span>
+                                <div class="flex-grow-1">
+                                    {% if chunk.chunk_metadata and chunk.chunk_metadata.heading %}
+                                    <div class="chunk-heading">
+                                        <i class="fas fa-heading me-1"></i>
+                                        <span>所属标题: {{ chunk.chunk_metadata.heading }}</span>
+                                    </div>
+                                    {% endif %}
+
+                                    <div class="row">
+                                        <div class="{% if chunk.chunk_metadata and chunk.chunk_metadata is mapping and chunk.chunk_metadata.keys()|list|length > 0 %}col-md-7 col-lg-6{% else %}col-12{% endif %}">
+                                            <div class="chunk-content">{{ chunk.content }}</div>
+                                        </div>
+                                        
+                                        {% if chunk.chunk_metadata and chunk.chunk_metadata is mapping and chunk.chunk_metadata.keys()|list|length > 0 %}
+                                        <div class="col-md-5 col-lg-6">
+                                            <div class="card h-100 bg-light">
+                                                <div class="card-header py-2 bg-light">
+                                                    <h6 class="mb-0 fs-6"><i class="fas fa-info-circle me-1"></i>元数据信息</h6>
+                                                </div>
+                                                <div class="card-body py-2">
+                                                    <div class="meta-content" style="font-family: monospace; font-size: 0.85rem; max-height: 300px; overflow-y: auto;">
+                                                        <table class="table table-sm table-borderless mb-0">
+                                                            <tbody>
+                                                                {% for key, value in chunk.chunk_metadata.items() %}
+                                                                {% if key != 'heading' %}  <!-- 已经在上面显示了heading -->
+                                                                <tr>
+                                                                    <td style="width: 35%; color: var(--primary-color); vertical-align: top;">{{ key }}</td>
+                                                                    <td style="word-break: break-word; max-width: 300px;">
+                                                                        {% if value is mapping or value is sequence and value is not string %}
+                                                                            <pre class="mb-0" style="font-size: 0.85rem; white-space: pre-wrap; word-wrap: break-word; overflow-wrap: break-word;">{{ value|tojson(indent=2) }}</pre>
+                                                                        {% else %}
+                                                                            <span style="word-break: break-word;">{{ value }}</span>
+                                                                        {% endif %}
+                                                                    </td>
+                                                                </tr>
+                                                                {% endif %}
+                                                                {% endfor %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="chunk-metadata mt-1">
+                                        <span>字符数: {{ chunk.content|length }}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
-                </div>
                 {% elif document.status == '处理中' %}
-                <div class="alert alert-info" role="alert">
-                    <i class="fas fa-spinner fa-spin me-2"></i>
-                    正在处理切块，请稍候...
-                </div>
+                    <div class="alert alert-info" role="alert">
+                        <i class="fas fa-spinner fa-spin me-2"></i>
+                        正在处理切块，请稍候...
+                    </div>
                 {% else %}
-                <div class="alert alert-warning" role="alert">
-                    尚未进行切块，请设置参数并开始切块。
-                </div>
+                    <div class="alert alert-warning" role="alert">
+                        尚未进行切块，请设置参数并开始切块。
+                    </div>
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
+<!-- 引入ToDify弹窗 -->
+{% include "chunklab/to_dify_box.html" %}
 
 {% block extra_js %}
 <script>

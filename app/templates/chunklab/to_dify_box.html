@@ -1,0 +1,182 @@
+<!-- ToDify弹窗 -->
+<div class="modal fade" id="toDifyModal" tabindex="-1" aria-labelledby="toDifyModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="toDifyModalLabel">推送到Dify知识库</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="toDifyForm">
+          <input type="hidden" id="difyDocumentId" name="document_id" value="">
+          
+          <div class="mb-3">
+            <label for="difyApiServer" class="form-label">Dify API服务器地址</label>
+            <input type="text" class="form-control" id="difyApiServer" value="{{ dify_api_server }}" readonly>
+          </div>
+          
+          <div class="mb-3">
+            <label for="difyKnowledgeBase" class="form-label">选择知识库</label>
+            <select class="form-select" id="difyKnowledgeBase" name="dataset_id" required>
+              <option value="" selected disabled>加载中...</option>
+            </select>
+          </div>
+          
+          <div class="alert alert-info" role="alert">
+            <i class="fas fa-info-circle me-2"></i>
+            将把文档及其切块推送到Dify知识库，每个切块将作为一个段落导入。
+          </div>
+        </form>
+        
+        <!-- 推送结果反馈 -->
+        <div id="pushResult" class="alert alert-success mt-3" style="display: none;"></div>
+        <div id="pushError" class="alert alert-danger mt-3" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="pushToDifyBtn">
+          <i class="fas fa-cloud-upload-alt me-2"></i>推送
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 加载知识库列表
+function loadKnowledgeBases() {
+  const knowledgeBaseSelect = document.getElementById('difyKnowledgeBase');
+  
+  // 清空并显示加载中
+  knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>加载中...</option>';
+  
+  fetch('/chunklab/dify/knowledge-bases')
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        // 清空下拉框
+        knowledgeBaseSelect.innerHTML = '';
+        
+        // 添加默认选项
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        defaultOption.textContent = '请选择知识库';
+        knowledgeBaseSelect.appendChild(defaultOption);
+        
+        // 添加知识库选项
+        const datasets = data.data.data || [];
+        datasets.forEach(dataset => {
+          const option = document.createElement('option');
+          option.value = dataset.id;
+          option.textContent = dataset.name;
+          knowledgeBaseSelect.appendChild(option);
+        });
+      } else {
+        // 显示错误
+        knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>加载失败</option>';
+        console.error('获取知识库列表失败:', data.message);
+      }
+    })
+    .catch(error => {
+      knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>加载失败</option>';
+      console.error('获取知识库列表异常:', error);
+    });
+}
+
+// 推送到Dify
+function pushToDify(documentId) {
+  const form = document.getElementById('toDifyForm');
+  const knowledgeBaseSelect = document.getElementById('difyKnowledgeBase');
+  const pushResult = document.getElementById('pushResult');
+  const pushError = document.getElementById('pushError');
+  const pushBtn = document.getElementById('pushToDifyBtn');
+  
+  // 隐藏之前的结果
+  pushResult.style.display = 'none';
+  pushError.style.display = 'none';
+  
+  // 检查是否选择了知识库
+  if (!knowledgeBaseSelect.value) {
+    pushError.textContent = '请选择知识库';
+    pushError.style.display = 'block';
+    return;
+  }
+  
+  // 禁用按钮并显示加载状态
+  pushBtn.disabled = true;
+  pushBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>推送中...';
+  
+  // 创建FormData
+  const formData = new FormData();
+  formData.append('dataset_id', knowledgeBaseSelect.value);
+  
+  // 发送请求
+  fetch(`/chunklab/dify/push/${documentId}`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    // 恢复按钮状态
+    pushBtn.disabled = false;
+    pushBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>推送';
+    
+    if (data.message === '推送成功') {
+      // 显示成功消息
+      pushResult.textContent = `推送成功！共导入 ${data.segments_count} 个段落。`;
+      pushResult.style.display = 'block';
+      
+      // 3秒后关闭弹窗
+      setTimeout(() => {
+        const modal = bootstrap.Modal.getInstance(document.getElementById('toDifyModal'));
+        modal.hide();
+      }, 3000);
+    } else {
+      // 显示错误消息
+      pushError.textContent = data.message || '推送失败';
+      pushError.style.display = 'block';
+    }
+  })
+  .catch(error => {
+    // 恢复按钮状态
+    pushBtn.disabled = false;
+    pushBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>推送';
+    
+    // 显示错误
+    pushError.textContent = '推送过程中发生错误: ' + error.message;
+    pushError.style.display = 'block';
+    console.error('推送异常:', error);
+  });
+}
+
+// 初始化ToDify功能
+document.addEventListener('DOMContentLoaded', function() {
+  const toDifyModal = document.getElementById('toDifyModal');
+  
+  // 弹窗打开时加载知识库列表
+  toDifyModal.addEventListener('show.bs.modal', function(event) {
+    // 获取触发按钮
+    const button = event.relatedTarget;
+    // 获取文档ID
+    const documentId = button.getAttribute('data-document-id');
+    
+    // 设置表单中的文档ID
+    document.getElementById('difyDocumentId').value = documentId;
+    
+    // 重置结果显示
+    document.getElementById('pushResult').style.display = 'none';
+    document.getElementById('pushError').style.display = 'none';
+    
+    // 加载知识库列表
+    loadKnowledgeBases();
+  });
+  
+  // 点击推送按钮
+  document.getElementById('pushToDifyBtn').addEventListener('click', function() {
+    const documentId = document.getElementById('difyDocumentId').value;
+    pushToDify(documentId);
+  });
+});
+</script> 

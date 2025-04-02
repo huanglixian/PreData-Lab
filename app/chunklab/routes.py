@@ -10,12 +10,14 @@ import time
 import json
 import shutil
 from pathlib import Path
+import requests
 
 from ..database import get_db, Document, Chunk
 from ..config import APP_CONFIG, get_config
 from .. import templates
 from .document_service import DocumentService
 from .chunk_service import ChunkService
+from .dify_service import DifyService
 
 router = APIRouter()
 
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 # 文档服务和切块服务实例
 document_service = DocumentService()
 chunk_service = ChunkService()
+dify_service = DifyService()
 
 # 主页面路由
 @router.get("/", response_class=RedirectResponse)
@@ -44,7 +47,8 @@ async def index(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "documents": documents,
             "allowed_extensions": ", ".join(APP_CONFIG['ALLOWED_EXTENSIONS']),
-            "now": datetime.now
+            "now": datetime.now,
+            "dify_api_server": get_config('DIFY_API_SERVER')
         }
     )
 
@@ -79,7 +83,8 @@ async def chunk_page(document_id: int, request: Request, db: Session = Depends(g
             "chunk_strategies": get_config('CHUNK_STRATEGIES'),
             "default_chunk_size": APP_CONFIG['DEFAULT_CHUNK_SIZE'],
             "default_overlap": APP_CONFIG['DEFAULT_OVERLAP'],
-            "now": datetime.now
+            "now": datetime.now,
+            "dify_api_server": get_config('DIFY_API_SERVER')
         }
     )
 
@@ -158,4 +163,15 @@ async def get_strategies_for_filetype(file_ext: str):
     return JSONResponse({
         "file_type": file_ext,
         "strategies": supported_strategies
-    }) 
+    })
+
+# Dify 相关路由
+@router.get("/dify/knowledge-bases")
+async def get_dify_knowledge_bases():
+    """获取Dify知识库列表"""
+    return dify_service.get_knowledge_bases()
+
+@router.post("/dify/push/{document_id}")
+async def push_to_dify(document_id: int, dataset_id: str = Form(...), db: Session = Depends(get_db)):
+    """推送文档到Dify知识库"""
+    return dify_service.push_document_to_dify(document_id, dataset_id, db) 

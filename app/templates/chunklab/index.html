@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}切块实验室 - 首页{% endblock %}
+{% block title %}切块实验室{% endblock %}
 
 {% block extra_css %}
 <style>
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
     .upload-container {
         background-color: var(--card-bg);
         border-radius: 6px;
@@ -12,11 +16,31 @@
         margin-bottom: 2rem;
     }
     
-    .document-list {
+    .documents-list {
         background-color: var(--card-bg);
         border-radius: 6px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         padding: 2rem;
+    }
+    
+    .drop-zone {
+        border: 2px dashed var(--border-color);
+        border-radius: 6px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .drop-zone-active {
+        border-color: var(--accent);
+        background-color: rgba(52, 152, 219, 0.05);
+    }
+    
+    .drop-zone-icon {
+        font-size: 2.5rem;
+        color: var(--accent);
+        margin-bottom: 1rem;
     }
     
     .document-item {
@@ -29,103 +53,113 @@
     }
     
     .document-name {
-        font-weight: 600;
-        color: var(--primary-color);
+        font-weight: bold;
+        color: var(--text-color);
     }
     
     .document-meta {
         font-size: 0.85rem;
         color: var(--text-muted);
+        margin-top: 0.25rem;
     }
     
     .document-status {
-        font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
         font-size: 0.75rem;
+        font-weight: 600;
+        background-color: var(--light-bg);
     }
     
     .status-chunked {
-        background-color: rgba(42, 94, 75, 0.15);
-        color: var(--success-color);
-    }
-    
-    .status-pending {
-        background-color: rgba(125, 92, 40, 0.15);
-        color: var(--warning-color);
+        background-color: rgba(41, 128, 185, 0.1);
+        color: #2980b9;
     }
     
     .status-processing {
-        background-color: rgba(43, 88, 118, 0.15);
-        color: var(--info-color);
+        background-color: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+    }
+    
+    .status-pending {
+        background-color: rgba(189, 195, 199, 0.1);
+        color: #7f8c8d;
     }
     
     .action-buttons .btn {
-        padding: 0.25rem 0.5rem;
-        font-size: 0.8rem;
-    }
-    
-    .drop-zone {
-        border: 2px dashed #d1d7e0;
-        border-radius: 6px;
-        padding: 2rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s;
-        background-color: rgba(240, 242, 245, 0.5);
-    }
-    
-    .drop-zone:hover {
-        border-color: var(--accent-color);
-        background-color: rgba(58, 110, 165, 0.05);
-    }
-    
-    .drop-zone-active {
-        border-color: var(--accent-color);
-        background-color: rgba(58, 110, 165, 0.1);
-    }
-    
-    .upload-icon {
-        font-size: 2.5rem;
-        color: var(--accent-color);
-        margin-bottom: 1rem;
-        opacity: 0.8;
+        margin-left: 0.5rem;
     }
     
     .progress-container {
-        margin-top: 1rem;
+        margin-top: 20px;
         display: none;
+    }
+    
+    .upload-status {
+        margin-top: 5px;
+        font-size: 14px;
+        color: var(--text-muted);
     }
     
     h2, h4 {
         color: var(--primary-color);
     }
+    
+    @media (max-width: 992px) {
+        .document-item .row > div {
+            margin-bottom: 0.5rem;
+        }
+        
+        .action-buttons {
+            text-align: left !important;
+        }
+        
+        .action-buttons .btn {
+            margin-left: 0;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row mb-4">
+<div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="page-header d-flex justify-content-between align-items-center">
             <h2>切块实验室</h2>
-            <a href="/" class="btn btn-outline-primary">
-                <i class="fas fa-arrow-left me-2"></i>返回首页
-            </a>
+            <div class="d-flex align-items-center">
+                <div class="dropdown me-3">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="helpDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-question-circle me-1"></i>帮助
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="helpDropdown">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-book me-2"></i>查看文档</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-video me-2"></i>观看教程</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>切块设置指南</a></li>
+                    </ul>
+                </div>
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>返回首页
+                </a>
+            </div>
         </div>
         
-        <!-- 文件上传区域 -->
         <div class="upload-container">
-            <h4 class="mb-4">文件上传</h4>
-            
+            <h4 class="mb-4">上传文档</h4>
             <form id="uploadForm" enctype="multipart/form-data">
-                <div class="drop-zone" id="dropZone">
-                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                    <h5>拖拽文件到此处或点击选择文件</h5>
-                    <p class="text-muted">支持的文件类型: {{ allowed_extensions }}</p>
-                    <input type="file" id="fileInput" name="file" class="d-none">
-                    <button type="button" id="browseButton" class="btn btn-primary mt-2">
+                <div id="dropZone" class="drop-zone">
+                    <div class="drop-zone-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="fs-5 mb-2">拖拽文件到此处或点击选择文件</div>
+                    <div class="text-muted small mb-3">支持格式: {{ allowed_extensions }}</div>
+                    <button type="button" id="browseButton" class="btn btn-primary">
                         <i class="fas fa-folder-open me-2"></i>浏览文件
                     </button>
+                    <input type="file" id="fileInput" style="display: none">
                 </div>
                 
                 <div class="progress-container" id="progressContainer">
@@ -135,17 +169,13 @@
                              aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
                              style="width: 0%">0%</div>
                     </div>
-                    <small class="text-muted mt-2" id="uploadStatus">准备上传...</small>
+                    <div class="upload-status" id="uploadStatus">准备上传...</div>
                 </div>
             </form>
         </div>
         
-        <!-- 文档列表 -->
-        <div class="document-list">
-            <h4 class="mb-4">
-                <i class="fas fa-file-alt me-2"></i>文档列表
-                <span class="text-muted fs-6 ms-2">({{ documents|length }}个文档)</span>
-            </h4>
+        <div class="documents-list">
+            <h4 class="mb-4">文档列表</h4>
             
             {% if documents %}
                 <div class="documents-container">
@@ -158,21 +188,22 @@
                                     上传时间: {{ document.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}
                                     <span class="mx-2">|</span>
                                     大小: {{ '%0.2f'|format(document.filesize/1024) }} KB
+                                    <span class="mx-2">|</span>
+                                    <span class="document-status {% if document.status == '已切块' %}status-chunked{% elif document.status == '处理中' %}status-processing{% else %}status-pending{% endif %}">
+                                        {{ document.status }}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="col-lg-2 text-center">
-                                <span class="document-status {% if document.status == '已切块' %}status-chunked{% elif document.status == '处理中' %}status-processing{% else %}status-pending{% endif %}">
-                                    {{ document.status }}
-                                </span>
-                            </div>
-                            <div class="col-lg-4 text-end action-buttons">
+                            <div class="col-lg-6 text-end action-buttons">
                                 <a href="/chunklab/documents/{{ document.id }}/chunk" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-cut me-1"></i>切块
+                                    <i class="fas fa-cut me-1"></i>切块/查看
                                 </a>
                                 {% if document.status == '已切块' %}
-                                <a href="/chunklab/documents/{{ document.id }}/chunks" class="btn btn-info btn-sm">
-                                    <i class="fas fa-eye me-1"></i>查看
-                                </a>
+                                <button type="button" class="btn btn-info btn-sm" 
+                                        data-bs-toggle="modal" data-bs-target="#toDifyModal"
+                                        data-document-id="{{ document.id }}">
+                                    <i class="fas fa-cloud-upload-alt me-1"></i>ToDify
+                                </button>
                                 {% endif %}
                                 <button type="button" class="btn btn-danger btn-sm" 
                                         onclick="confirmDelete('/chunklab/documents/{{ document.id }}', '{{ document.filename }}')">
@@ -192,6 +223,9 @@
         </div>
     </div>
 </div>
+
+<!-- 引入ToDify弹窗 -->
+{% include "chunklab/to_dify_box.html" %}
 {% endblock %}
 
 {% block extra_js %}
@@ -355,5 +389,52 @@
             });
         }
     });
+    
+    // 确认删除文档
+    function confirmDelete(url, filename) {
+        Swal.fire({
+            title: '确认删除',
+            html: `您确定要删除文档 <strong>${filename}</strong> 吗？<br>此操作将同时删除文件及其所有切块。`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: '删除',
+            cancelButtonText: '取消'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                deleteDocument(url);
+            }
+        });
+    }
+    
+    // 删除文档
+    function deleteDocument(url) {
+        fetch(url, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            Swal.fire({
+                icon: 'success',
+                title: '删除成功',
+                text: data.message || '文档已成功删除',
+                confirmButtonColor: '#2c3e50',
+                showConfirmButton: false,
+                timer: 1500
+            }).then(() => {
+                window.location.reload();
+            });
+        })
+        .catch(error => {
+            console.error('删除文档失败:', error);
+            Swal.fire({
+                icon: 'error',
+                title: '删除失败',
+                text: '删除文档时发生错误',
+                confirmButtonColor: '#2c3e50'
+            });
+        });
+    }
 </script>
 {% endblock %} 

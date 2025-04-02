@@ -17,6 +17,12 @@ os.makedirs(DB_DIR, exist_ok=True)
 DB_PATH = DB_DIR / 'chunklab.db'
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
+# Dify配置
+DIFY_CONFIG = {
+    'API_SERVER': 'https://dify.huanglixian.com:1984',
+    'API_KEY': 'dataset-Rj9QfzNmO2llomIhp0S42pB7'
+}
+
 # 应用配置
 APP_CONFIG = {
     'HOST': '0.0.0.0',
@@ -43,4 +49,8 @@ def get_config(key=None):
     """获取配置项，某些配置项需要动态加载"""
     if key == 'CHUNK_STRATEGIES':
         return get_chunk_strategies()
+    elif key == 'DIFY_API_SERVER':
+        return DIFY_CONFIG['API_SERVER']
+    elif key == 'DIFY_API_KEY':
+        return DIFY_CONFIG['API_KEY']
     return APP_CONFIG.get(key, None) if key else APP_CONFIG 
