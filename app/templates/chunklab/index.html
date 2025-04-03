@@ -12,8 +12,9 @@
         background-color: var(--card-bg);
         border-radius: 6px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        padding: 2rem;
-        margin-bottom: 2rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        margin-top: 0.5rem;
     }
     
     .documents-list {
@@ -148,7 +149,7 @@
         </div>
         
         <div class="upload-container">
-            <h4 class="mb-4">上传文档</h4>
+            <h4 class="mb-3">上传文档</h4>
             <form id="uploadForm" enctype="multipart/form-data">
                 <div id="dropZone" class="drop-zone">
                     <div class="drop-zone-icon">
@@ -192,13 +193,20 @@
                                     <span class="document-status {% if document.status == '已切块' %}status-chunked{% elif document.status == '处理中' %}status-processing{% else %}status-pending{% endif %}">
                                         {{ document.status }}
                                     </span>
+                                    {% if document.status == '已切块' %}
+                                    <span class="mx-2">|</span>
+                                    <span class="document-status 
+                                        {% if document.dify_push_status == 'pushed' %}status-chunked{% elif document.dify_push_status == 'pushing' %}status-processing{% else %}status-pending{% endif %}">
+                                        {% if document.dify_push_status == 'pushed' %}已推送{% elif document.dify_push_status == 'pushing' %}推送中{% else %}未推送{% endif %}
+                                    </span>
+                                    {% endif %}
                                 </div>
                             </div>
                             <div class="col-lg-6 text-end action-buttons">
                                 <a href="/chunklab/documents/{{ document.id }}/chunk" class="btn btn-primary btn-sm">
                                     <i class="fas fa-cut me-1"></i>切块/查看
                                 </a>
-                                {% if document.status == '已切块' %}
+                                {% if document.status == '已切块' and document.dify_push_status != 'pushing' %}
                                 <button type="button" class="btn btn-info btn-sm" 
                                         data-bs-toggle="modal" data-bs-target="#toDifyModal"
                                         data-document-id="{{ document.id }}">

@@ -88,6 +88,21 @@
     .dropdown-item:active {
         background-color: var(--primary-color);
     }
+    
+    .status-unpushed {
+        background-color: rgba(230, 126, 34, 0.1);
+        color: #e67e22;
+    }
+    
+    .status-pushing {
+        background-color: rgba(142, 68, 173, 0.1);
+        color: #8e44ad;
+    }
+    
+    .status-pushed {
+        background-color: rgba(39, 174, 96, 0.1);
+        color: #27ae60;
+    }
 </style>
 {% endblock %}
 
@@ -127,7 +142,19 @@
         <!-- 文档信息 -->
         <div class="alert alert-info">
             <h5 class="mb-2">{{ document.filename }}</h5>
-            <small class="text-muted">上传时间：{{ document.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+            <div>
+                <small class="text-muted">上传时间：{{ document.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                {% if document.status == '已切块' %}
+                <span class="mx-2">|</span>
+                <span class="document-status doc-push-status 
+                      {% if document.push_status == '已推送' %}status-pushed
+                      {% elif document.push_status == '推送中' %}status-pushing
+                      {% else %}status-unpushed{% endif %}" 
+                      data-document-id="{{ document.id }}">
+                    {{ document.push_status }}
+                </span>
+                {% endif %}
+            </div>
         </div>
         
         <!-- 切块参数设置 -->

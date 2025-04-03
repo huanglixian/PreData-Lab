@@ -171,7 +171,17 @@ async def get_dify_knowledge_bases():
     """获取Dify知识库列表"""
     return dify_service.get_knowledge_bases()
 
+@router.get("/dify/test-connection")
+async def test_dify_connection():
+    """测试与Dify服务器的连接"""
+    return dify_service.test_connection()
+
 @router.post("/dify/push/{document_id}")
 async def push_to_dify(document_id: int, dataset_id: str = Form(...), db: Session = Depends(get_db)):
     """推送文档到Dify知识库"""
-    return dify_service.push_document_to_dify(document_id, dataset_id, db) 
+    return dify_service.push_document_to_dify(document_id, dataset_id, db)
+
+@router.get("/dify/status/{document_id}")
+async def get_dify_push_status(document_id: int, db: Session = Depends(get_db)):
+    """获取文档推送到Dify的状态"""
+    return dify_service.get_push_status(document_id, db) 

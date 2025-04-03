@@ -19,6 +19,11 @@ def get_db():
     finally:
         db.close()
 
+# 创建新的会话供后台任务使用
+def get_db_session():
+    db = SessionLocal()
+    return db
+
 # Document模型
 class Document(Base):
     __tablename__ = "documents"
@@ -32,6 +37,7 @@ class Document(Base):
     status = Column(String(50), default="未切块")
     last_chunk_params = Column(JSON, default=lambda: json.dumps({}))
     hash = Column(String(64))  # 文件哈希值
+    dify_push_status = Column(String(20), nullable=True)  # Dify推送状态：None=未推送，pushing=推送中，pushed=已推送
     
     # 关联到Chunk表
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
