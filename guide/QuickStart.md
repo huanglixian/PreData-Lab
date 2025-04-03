@@ -58,6 +58,8 @@ pip install -r requirements.txt
 
 ## ⚙️ Step 4: 配置应用（可选）
 
+### 基本配置
+
 默认配置已足够使用，但如果你想自定义一些设置，可以编辑`app/config.py`文件：
 
 ```python
@@ -73,6 +75,29 @@ APP_CONFIG = {
 ```
 
 端口被占用？别担心，随便改个数字就好，比如`8411`或`8080`！
+
+### 敏感配置（API密钥等）
+
+对于敏感配置（如API密钥、服务器地址等），我们使用环境变量方式配置，以避免泄露：
+
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑.env文件，填入您的实际配置
+nano .env  # 或使用任何文本编辑器
+```
+
+.env文件示例：
+```
+# Dify API配置
+DIFY_API_SERVER=https://your-api-server-url
+DIFY_API_KEY=your-api-key
+```
+
+> **注意**：.env文件包含敏感信息，不会被提交到Git仓库。每次克隆新仓库后都需要重新配置。
+
+更多关于配置管理的详细信息，请参阅[配置说明](../docs/配置说明.md)文档。
 
 ## 🚂 Step 5: 运行应用
 

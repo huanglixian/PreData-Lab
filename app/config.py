@@ -1,5 +1,9 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 项目根目录
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,10 +21,10 @@ os.makedirs(DB_DIR, exist_ok=True)
 DB_PATH = DB_DIR / 'chunklab.db'
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# Dify配置
+# Dify配置 - 从环境变量加载
 DIFY_CONFIG = {
-    'API_SERVER': 'https://dify.huanglixian.com:1984',
-    'API_KEY': 'dataset-Rj9QfzNmO2llomIhp0S42pB7'
+    'API_SERVER': os.getenv('DIFY_API_SERVER', 'https://your-api-server-url'),
+    'API_KEY': os.getenv('DIFY_API_KEY', 'your-api-key')
 }
 
 # 应用配置

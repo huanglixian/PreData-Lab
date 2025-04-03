@@ -28,6 +28,10 @@ predatalab\Scripts\activate     # Windows
 # 安装依赖
 pip install -r requirements.txt
 
+# 配置环境变量
+cp .env.example .env  # 复制环境变量模板
+# 编辑.env文件，填入您的配置信息
+
 # 启动应用
 python run.py
 ```
@@ -109,8 +113,6 @@ PreDataLab/
 │   │   ├── chunk_service.py     # 切块服务
 │   │   └── routes.py            # 路由定义
 │   ├── common/              # 公共组件
-│   ├── embedlab/            # 向量嵌入实验室（开发中）
-│   ├── ocrlab/              # OCR识别实验室（开发中）
 │   ├── static/              # 静态资源
 │   ├── templates/           # 页面模板
 │   ├── config.py            # 配置文件
@@ -124,6 +126,7 @@ PreDataLab/
 │   └── template_strategy.py     # 策略模板
 ├── chunklab_helper.py       # 辅助工具脚本
 ├── requirements.txt         # 依赖项
+├── .env                     # 环境文件
 └── run.py                   # 应用启动脚本
 ```
 
