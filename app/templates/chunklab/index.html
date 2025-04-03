@@ -242,43 +242,33 @@
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
         const browseButton = document.getElementById('browseButton');
-        const uploadForm = document.getElementById('uploadForm');
         const progressContainer = document.getElementById('progressContainer');
         const uploadProgress = document.getElementById('uploadProgress');
         const uploadStatus = document.getElementById('uploadStatus');
         
         // 点击浏览按钮选择文件
-        browseButton.addEventListener('click', function() {
-            fileInput.click();
-        });
+        browseButton.addEventListener('click', () => fileInput.click());
         
         // 点击整个区域选择文件
-        dropZone.addEventListener('click', function(e) {
-            if (e.target !== browseButton) {
-                fileInput.click();
-            }
+        dropZone.addEventListener('click', (e) => {
+            if (e.target !== browseButton) fileInput.click();
         });
         
-        // 拖拽事件 - 进入
-        dropZone.addEventListener('dragenter', function(e) {
-            e.preventDefault();
-            dropZone.classList.add('drop-zone-active');
+        // 拖拽事件处理
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drop-zone-active');
+            });
         });
         
-        // 拖拽事件 - 悬停
-        dropZone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            dropZone.classList.add('drop-zone-active');
-        });
-        
-        // 拖拽事件 - 离开
-        dropZone.addEventListener('dragleave', function(e) {
+        dropZone.addEventListener('dragleave', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drop-zone-active');
         });
         
         // 拖拽事件 - 放置
-        dropZone.addEventListener('drop', function(e) {
+        dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drop-zone-active');
             
@@ -289,10 +279,8 @@
         });
         
         // 选择文件后自动上传
-        fileInput.addEventListener('change', function() {
-            if (fileInput.files.length) {
-                uploadFile();
-            }
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) uploadFile();
         });
         
         // 上传文件
@@ -324,7 +312,7 @@
             const xhr = new XMLHttpRequest();
             
             // 进度事件
-            xhr.upload.addEventListener('progress', function(e) {
+            xhr.upload.addEventListener('progress', (e) => {
                 if (e.lengthComputable) {
                     const percentComplete = Math.round((e.loaded / e.total) * 100);
                     uploadProgress.style.width = percentComplete + '%';
@@ -337,38 +325,15 @@
             xhr.addEventListener('load', function() {
                 if (xhr.status === 200) {
                     uploadProgress.style.width = '100%';
-                    uploadStatus.textContent = '上传完成，正在处理...';
-                    
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        Swal.fire({
-                            icon: 'success',
-                            title: '上传成功',
-                            text: response.message || '文件已成功上传',
-                            confirmButtonColor: '#2c3e50',
-                            showConfirmButton: false,
-                            timer: 1500
-                        }).then(() => {
-                            window.location.reload();
-                        });
-                    } catch (error) {
-                        console.error('解析响应失败:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: '处理失败',
-                            text: '服务器返回了无效的响应',
-                            confirmButtonColor: '#2c3e50'
-                        });
-                    }
+                    uploadStatus.textContent = '上传完成，正在刷新...';
+                    setTimeout(() => window.location.reload(), 600);
                 } else {
                     handleUploadError(xhr);
                 }
             });
             
             // 错误事件
-            xhr.addEventListener('error', function() {
-                handleUploadError(xhr);
-            });
+            xhr.addEventListener('error', () => handleUploadError(xhr));
             
             // 发送请求
             xhr.open('POST', '/chunklab/upload', true);
@@ -411,37 +376,23 @@
             cancelButtonText: '取消'
         }).then((result) => {
             if (result.isConfirmed) {
-                deleteDocument(url);
+                // 删除文档
+                fetch(url, { method: 'DELETE' })
+                    .then(response => response.json())
+                    .then(() => {
+                        // 简化成功处理
+                        setTimeout(() => window.location.reload(), 500);
+                    })
+                    .catch(error => {
+                        console.error('删除文档失败:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: '删除失败',
+                            text: '删除文档时发生错误',
+                            confirmButtonColor: '#2c3e50'
+                        });
+                    });
             }
-        });
-    }
-    
-    // 删除文档
-    function deleteDocument(url) {
-        fetch(url, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            Swal.fire({
-                icon: 'success',
-                title: '删除成功',
-                text: data.message || '文档已成功删除',
-                confirmButtonColor: '#2c3e50',
-                showConfirmButton: false,
-                timer: 1500
-            }).then(() => {
-                window.location.reload();
-            });
-        })
-        .catch(error => {
-            console.error('删除文档失败:', error);
-            Swal.fire({
-                icon: 'error',
-                title: '删除失败',
-                text: '删除文档时发生错误',
-                confirmButtonColor: '#2c3e50'
-            });
         });
     }
 </script>

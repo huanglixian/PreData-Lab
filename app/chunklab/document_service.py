@@ -1,8 +1,7 @@
-from fastapi import UploadFile, HTTPException
+from fastapi import UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import os
-import shutil
 from pathlib import Path
 import logging
 import hashlib
@@ -18,19 +17,11 @@ class DocumentService:
     """文档服务类 - 处理文档上传、删除等操作"""
     
     async def upload_document(self, file: UploadFile, db: Session) -> JSONResponse:
-        """
-        上传文档并保存到数据库
-        
-        Args:
-            file: 上传的文件对象
-            db: 数据库会话
-            
-        Returns:
-            JSONResponse: 上传结果
-        """
+        """上传文档并保存到数据库"""
         try:
             # 检查文件扩展名
-            file_ext = Path(file.filename).suffix.lower()
+            filename = file.filename
+            file_ext = Path(filename).suffix.lower()
             if file_ext not in APP_CONFIG['ALLOWED_EXTENSIONS']:
                 logger.warning(f"不支持的文件类型: {file_ext}")
                 return JSONResponse(
@@ -38,29 +29,26 @@ class DocumentService:
                     content={"message": f"不支持的文件类型。允许的类型: {', '.join(APP_CONFIG['ALLOWED_EXTENSIONS'])}"}
                 )
             
-            # 保存文件
-            file_path = UPLOADS_DIR / file.filename
+            # 处理文件名和路径
+            new_filename = filename
+            file_path = UPLOADS_DIR / filename
             
-            # 检查文件是否已存在，若存在则添加时间戳
             if os.path.exists(file_path):
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                name, ext = os.path.splitext(file.filename)
+                name, ext = os.path.splitext(filename)
                 new_filename = f"{name}_{timestamp}{ext}"
                 file_path = UPLOADS_DIR / new_filename
-            else:
-                new_filename = file.filename
             
-            # 创建目标文件
+            # 读取文件内容并保存
+            file_content = await file.read()
             with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
+                buffer.write(file_content)
                 
-            # 计算文件大小
+            # 文件信息
             file_size = os.path.getsize(file_path)
+            file_hash = hashlib.md5(file_content).hexdigest()
             
-            # 计算文件哈希值
-            file_hash = self._calculate_file_hash(file_path)
-            
-            # 保存文档信息到数据库
+            # 保存到数据库
             document = Document(
                 filename=new_filename,
                 filepath=str(file_path),
@@ -90,16 +78,7 @@ class DocumentService:
             )
     
     def delete_document(self, document_id: int, db: Session) -> JSONResponse:
-        """
-        删除文档及其切块
-        
-        Args:
-            document_id: 文档ID
-            db: 数据库会话
-            
-        Returns:
-            JSONResponse: 删除结果
-        """
+        """删除文档及其切块"""
         try:
             # 查找文档
             document = db.query(Document).filter(Document.id == document_id).first()
@@ -116,10 +95,8 @@ class DocumentService:
                 os.remove(file_path)
                 logger.info(f"已删除文件: {file_path}")
             
-            # 删除关联的切块
+            # 删除关联的切块和文档记录
             db.query(Chunk).filter(Chunk.document_id == document_id).delete()
-            
-            # 删除文档记录
             db.delete(document)
             db.commit()
             
@@ -135,20 +112,4 @@ class DocumentService:
             return JSONResponse(
                 status_code=500,
                 content={"message": f"删除文档失败: {str(e)}"}
-            )
-    
-    def _calculate_file_hash(self, file_path: Path) -> str:
-        """
-        计算文件的MD5哈希值
-        
-        Args:
-            file_path: 文件路径
-            
-        Returns:
-            文件的MD5哈希值
-        """
-        hash_md5 = hashlib.md5()
-        with open(file_path, "rb") as f:
-            for chunk in iter(lambda: f.read(4096), b""):
-                hash_md5.update(chunk)
-        return hash_md5.hexdigest() 
+            ) 
