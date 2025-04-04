@@ -24,8 +24,7 @@ DATABASE_URL = f"sqlite:///{DB_PATH}"
 # Dify配置 - 从环境变量加载
 DIFY_CONFIG = {
     'API_SERVER': os.getenv('DIFY_API_SERVER', 'https://your-api-server-url'),
-    'API_KEY': os.getenv('DIFY_API_KEY', 'your-api-key'),
-    'THREAD_POOL_SIZE': int(os.getenv('DIFY_THREAD_POOL_SIZE', '4'))
+    'API_KEY': os.getenv('DIFY_API_KEY', 'your-api-key')
 }
 
 # 应用配置
@@ -58,6 +57,4 @@ def get_config(key=None):
         return DIFY_CONFIG['API_SERVER']
     elif key == 'DIFY_API_KEY':
         return DIFY_CONFIG['API_KEY']
-    elif key == 'DIFY_THREAD_POOL_SIZE':
-        return DIFY_CONFIG['THREAD_POOL_SIZE']
     return APP_CONFIG.get(key, None) if key else APP_CONFIG 

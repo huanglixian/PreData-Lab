@@ -3,20 +3,15 @@ import json
 import logging
 import time
 import os
-import uuid
 from typing import List, Dict, Any
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from concurrent.futures import ThreadPoolExecutor
 
 from ..config import get_config
 from ..database import Document, Chunk, get_db, get_db_session
 
 # 配置日志
 logger = logging.getLogger(__name__)
-
-# 批量任务状态跟踪
-batch_tasks = {}
 
 class DifyService:
     """处理与Dify API交互的服务类"""
@@ -25,8 +20,6 @@ class DifyService:
         """初始化服务"""
         self.api_server = get_config('DIFY_API_SERVER')
         self.api_key = get_config('DIFY_API_KEY')
-        self.thread_pool_size = get_config('DIFY_THREAD_POOL_SIZE')
-        self.executor = ThreadPoolExecutor(max_workers=self.thread_pool_size)
         
     def get_headers(self):
         """获取API请求头"""
@@ -104,111 +97,6 @@ class DifyService:
         except Exception as e:
             logger.error(f"启动推送任务失败: {str(e)}")
             return JSONResponse(status_code=500, content={'message': str(e)})
-    
-    def push_batch_to_dify(self, document_ids: List[int], dataset_id: str, db: Session) -> JSONResponse:
-        """批量推送多个文档到Dify知识库"""
-        try:
-            # 验证文档
-            document_ids = [int(doc_id) for doc_id in document_ids]
-            documents = db.query(Document).filter(Document.id.in_(document_ids)).all()
-            
-            if not documents or len(documents) != len(document_ids):
-                return JSONResponse(status_code=404, content={'message': '部分或全部文档不存在'})
-            
-            # 创建批量任务ID和状态
-            task_id = str(uuid.uuid4())
-            total_count = len(document_ids)
-            batch_tasks[task_id] = {
-                'total_count': total_count,
-                'processed_count': 0,
-                'success_count': 0,
-                'error_count': 0,
-                'status': 'processing',
-                'document_ids': document_ids,
-                'dataset_id': dataset_id,
-                'results': {}
-            }
-            
-            # 更新所有文档状态为推送中
-            for document in documents:
-                document.dify_push_status = "pushing"
-            db.commit()
-            
-            # 启动后台任务处理批量推送
-            self._process_batch(task_id)
-            
-            return JSONResponse(status_code=200, content={
-                'message': f'批量推送任务已启动，共{total_count}个文档',
-                'status': 'processing',
-                'task_id': task_id
-            })
-            
-        except Exception as e:
-            logger.error(f"启动批量推送任务失败: {str(e)}")
-            return JSONResponse(status_code=500, content={'message': str(e)})
-    
-    def _process_batch(self, task_id: str):
-        """使用线程池处理批量任务"""
-        document_ids = batch_tasks[task_id]['document_ids']
-        dataset_id = batch_tasks[task_id]['dataset_id']
-        
-        # 提交所有任务到线程池
-        futures = []
-        for doc_id in document_ids:
-            future = self.executor.submit(
-                self._do_push_document_with_status_tracking, 
-                doc_id, 
-                dataset_id, 
-                task_id
-            )
-            futures.append(future)
-    
-    def _do_push_document_with_status_tracking(self, document_id: int, dataset_id: str, task_id: str = None):
-        """执行推送并跟踪批量状态"""
-        result = {'success': False, 'message': ''}
-        
-        try:
-            # 执行实际推送
-            self._do_push_document(document_id, dataset_id)
-            
-            # 更新成功状态
-            result['success'] = True
-            result['message'] = '推送成功'
-        except Exception as e:
-            # 记录错误
-            error_msg = str(e)
-            logger.error(f"文档 {document_id} 推送失败: {error_msg}")
-            result['message'] = error_msg
-        
-        # 更新批量任务状态
-        if task_id and task_id in batch_tasks:
-            batch_tasks[task_id]['processed_count'] += 1
-            if result['success']:
-                batch_tasks[task_id]['success_count'] += 1
-            else:
-                batch_tasks[task_id]['error_count'] += 1
-            
-            batch_tasks[task_id]['results'][document_id] = result
-            
-            # 检查是否所有任务都已完成
-            if batch_tasks[task_id]['processed_count'] >= batch_tasks[task_id]['total_count']:
-                batch_tasks[task_id]['status'] = 'completed'
-        
-        return result
-    
-    def get_batch_status(self, task_id: str) -> Dict[str, Any]:
-        """获取批量任务的状态"""
-        if task_id not in batch_tasks:
-            return {'status': 'error', 'message': '任务不存在'}
-        
-        task = batch_tasks[task_id]
-        return {
-            'status': task['status'],
-            'total_count': task['total_count'],
-            'processed_count': task['processed_count'],
-            'success_count': task['success_count'],
-            'error_count': task['error_count']
-        }
     
     def _do_push_document(self, document_id: int, dataset_id: str):
         """实际执行推送的后台任务"""

@@ -176,16 +176,7 @@
         </div>
         
         <div class="documents-list">
-            <h4 class="mb-4">文档列表
-                <span class="ms-2 fs-6">
-                    <a href="#" id="selectAll" class="text-secondary opacity-50 text-decoration-none"><i class="fas fa-check-square me-1 small"></i><small>全选</small></a>
-                    <span class="mx-1 text-secondary opacity-50">|</span>
-                    <a href="#" id="deselectAll" class="text-secondary opacity-50 text-decoration-none"><i class="far fa-square me-1 small"></i><small>全不选</small></a>
-                </span>
-                <div class="float-end">
-                    <button id="batchToDify" class="btn btn-sm" style="background-color: #17a2b8; color: white;"><i class="fas fa-cloud-upload-alt me-1"></i>批量ToDify</button>
-                </div>
-            </h4>
+            <h4 class="mb-4">文档列表</h4>
             
             {% if documents %}
                 <div class="documents-container">
@@ -193,12 +184,7 @@
                     <div class="document-item">
                         <div class="row align-items-center">
                             <div class="col-lg-6">
-                                <div class="d-flex align-items-center">
-                                    <div class="form-check me-2 mb-0">
-                                        <input class="form-check-input document-checkbox" type="checkbox" name="selected_docs" value="{{ document.id }}" id="doc{{ document.id }}">
-                                    </div>
-                                    <div class="document-name">{{ document.filename }}</div>
-                                </div>
+                                <div class="document-name">{{ document.filename }}</div>
                                 <div class="document-meta">
                                     上传时间: {{ document.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}
                                     <span class="mx-2">|</span>
@@ -209,7 +195,7 @@
                                     </span>
                                     {% if document.status == '已切块' %}
                                     <span class="mx-2">|</span>
-                                    <span class="document-status dify-push-status 
+                                    <span class="document-status 
                                         {% if document.dify_push_status == 'pushed' %}status-chunked{% elif document.dify_push_status == 'pushing' %}status-processing{% else %}status-pending{% endif %}">
                                         {% if document.dify_push_status == 'pushed' %}已推送{% elif document.dify_push_status == 'pushing' %}推送中{% else %}未推送{% endif %}
                                     </span>

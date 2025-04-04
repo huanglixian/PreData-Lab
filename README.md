@@ -113,7 +113,7 @@ PreDataLab/
 │   │   ├── chunk_service.py     # 切块服务
 │   │   └── routes.py            # 路由定义
 │   ├── common/              # 公共组件
-│   ├── static/              # 静态资源（templates的CSS、JS等）
+│   ├── static/              # 静态资源
 │   ├── templates/           # 页面模板
 │   ├── config.py            # 配置文件
 │   ├── database.py          # 数据库模型
