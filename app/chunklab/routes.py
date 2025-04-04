@@ -181,6 +181,17 @@ async def push_to_dify(document_id: int, dataset_id: str = Form(...), db: Sessio
     """推送文档到Dify知识库"""
     return dify_service.push_document_to_dify(document_id, dataset_id, db)
 
+@router.post("/dify/push-batch")
+async def push_batch_to_dify(document_ids: str = Form(...), dataset_id: str = Form(...), db: Session = Depends(get_db)):
+    """批量推送多个文档到Dify知识库"""
+    doc_ids = document_ids.split(',')
+    return dify_service.push_batch_to_dify(doc_ids, dataset_id, db)
+
+@router.get("/dify/batch-status/{task_id}")
+async def get_batch_status(task_id: str):
+    """获取批量处理的状态"""
+    return dify_service.get_batch_status(task_id)
+
 @router.get("/dify/status/{document_id}")
 async def get_dify_push_status(document_id: int, db: Session = Depends(get_db)):
     """获取文档推送到Dify的状态"""

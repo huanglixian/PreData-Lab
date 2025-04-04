@@ -4,11 +4,13 @@
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title" id="toDifyModalLabel">推送到Dify知识库</h5>
+        <span class="ms-2 badge bg-primary" id="selectedDocsCount" style="display: none;"></span>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <form id="toDifyForm">
           <input type="hidden" id="difyDocumentId" name="document_id" value="">
+          <input type="hidden" id="difyDocumentIds" name="document_ids" value="">
           
           <div class="mb-3">
             <label for="difyApiServer" class="form-label">Dify API服务器地址</label>
@@ -42,6 +44,11 @@
   </div>
 </div>
 
+<!-- 顶部进度条 -->
+<div id="batchProgress" class="progress position-fixed top-0 start-0 w-100" style="height: 3px; z-index: 9999; display: none;">
+  <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%"></div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const toDifyModal = document.getElementById('toDifyModal');
@@ -49,17 +56,64 @@ document.addEventListener('DOMContentLoaded', function() {
   const pushBtn = document.getElementById('pushToDifyBtn');
   const errorDiv = document.getElementById('pushError');
   const knowledgeBaseSelect = document.getElementById('difyKnowledgeBase');
+  const selectedDocsCount = document.getElementById('selectedDocsCount');
+  const batchProgress = document.getElementById('batchProgress');
   
   // 弹窗事件
   toDifyModal.addEventListener('show.bs.modal', function(event) {
-    // 获取文档ID并设置
-    const documentId = event.relatedTarget.getAttribute('data-document-id');
-    document.getElementById('difyDocumentId').value = documentId;
+    let button = event.relatedTarget;
+    
+    // 处理自定义事件
+    if (event.detail && event.detail.relatedTarget) {
+      button = event.detail.relatedTarget;
+    }
+    
+    const isBatch = button.hasAttribute('data-batch');
     
     // 重置UI状态
     errorDiv.style.display = 'none';
     resetConnectionBtn();
     knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>请先测试连接</option>';
+    
+    if (isBatch) {
+      // 批量模式
+      let selectedIds = [];
+      
+      // 尝试从button的data-document-ids获取
+      if (button.hasAttribute('data-document-ids')) {
+        selectedIds = button.getAttribute('data-document-ids').split(',');
+      } else {
+        // 从勾选框获取
+        const checkboxes = document.querySelectorAll('input[name="selected_docs"]:checked');
+        selectedIds = Array.from(checkboxes).map(cb => cb.value);
+      }
+      
+      if (selectedIds.length === 0) {
+        errorDiv.textContent = '请至少选择一个文档';
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+          bootstrap.Modal.getInstance(toDifyModal).hide();
+        }, 1500);
+        return;
+      }
+      
+      document.getElementById('difyDocumentIds').value = selectedIds.join(',');
+      document.getElementById('difyDocumentId').value = '';
+      
+      // 显示选中数量
+      selectedDocsCount.textContent = `已选择 ${selectedIds.length} 个文档`;
+      selectedDocsCount.style.display = 'inline-block';
+      document.getElementById('toDifyModalLabel').textContent = '批量推送到Dify知识库';
+    } else {
+      // 单文档模式
+      const documentId = button.getAttribute('data-document-id');
+      document.getElementById('difyDocumentId').value = documentId;
+      document.getElementById('difyDocumentIds').value = '';
+      
+      // 隐藏选中数量
+      selectedDocsCount.style.display = 'none';
+      document.getElementById('toDifyModalLabel').textContent = '推送到Dify知识库';
+    }
   });
   
   // 重置连接按钮状态
@@ -144,9 +198,43 @@ document.addEventListener('DOMContentLoaded', function() {
     errorDiv.style.display = 'block';
   }
   
+  // 使用全局的showToast函数，如果不存在，则创建一个简单版本
+  const showToast = window.showToast || function(type, message) {
+    console.log(`Toast ${type}: ${message}`);
+    // 如果没有全局函数，使用alert作为备选方案
+    if (type === 'error') {
+      alert('错误: ' + message);
+    } else if (type === 'success') {
+      alert('成功: ' + message);
+    } else {
+      alert(message);
+    }
+  };
+  
+  // 显示进度条
+  function showProgress() {
+    batchProgress.style.display = 'block';
+    batchProgress.querySelector('.progress-bar').style.width = '0%';
+  }
+  
+  // 更新进度条
+  function updateProgress(percent) {
+    batchProgress.querySelector('.progress-bar').style.width = percent + '%';
+  }
+  
+  // 完成进度条
+  function completeProgress() {
+    batchProgress.querySelector('.progress-bar').style.width = '100%';
+    setTimeout(() => {
+      batchProgress.style.display = 'none';
+    }, 1000);
+  }
+  
   // 推送到Dify
   pushBtn.addEventListener('click', function() {
     const documentId = document.getElementById('difyDocumentId').value;
+    const documentIds = document.getElementById('difyDocumentIds').value;
+    const isBatch = documentIds !== '';
     
     // 检查是否选择了知识库
     if (!knowledgeBaseSelect.value) {
@@ -163,7 +251,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const formData = new FormData();
     formData.append('dataset_id', knowledgeBaseSelect.value);
     
-    fetch(`/chunklab/dify/push/${documentId}`, {
+    let url = '';
+    
+    if (isBatch) {
+      // 批量模式
+      formData.append('document_ids', documentIds);
+      url = '/chunklab/dify/push-batch';
+      showProgress(); // 显示顶部进度条
+      
+      // 批量推送开始时，立即更新所有选中文档的推送状态为"推送中"
+      const ids = documentIds.split(',');
+      ids.forEach(id => {
+        updatePushStatus(id, 'pushing');
+      });
+    } else {
+      // 单文档模式
+      url = `/chunklab/dify/push/${documentId}`;
+      
+      // 单文档推送，立即更新推送状态为"推送中"
+      updatePushStatus(documentId, 'pushing');
+    }
+    
+    fetch(url, {
       method: 'POST',
       body: formData
     })
@@ -175,17 +284,104 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.status === 'processing') {
         // 关闭弹窗并显示全局提示
         bootstrap.Modal.getInstance(toDifyModal).hide();
-        showToast('info', '文档推送已开始，后台处理中...');
-        setTimeout(() => window.location.reload(), 3000);
+        if (isBatch) {
+          // 批量处理
+          const totalDocs = documentIds.split(',').length;
+          showToast('info', `${totalDocs}个文档推送已开始，后台处理中...`);
+          
+          // 轮询进度
+          if (data.task_id) {
+            pollBatchProgress(data.task_id);
+          }
+        } else {
+          // 单文档处理
+          showToast('info', '文档推送已开始，后台处理中...');
+        }
       } else {
+        completeProgress(); // 隐藏进度条
         showError(data.message || '推送失败');
       }
     })
     .catch(error => {
       pushBtn.disabled = false;
       pushBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>推送';
+      completeProgress(); // 隐藏进度条
       showError('推送失败: ' + error.message);
     });
   });
+  
+  // 轮询批量处理进度
+  function pollBatchProgress(taskId) {
+    // 保存当前批次的文档ID
+    const docIds = document.getElementById('difyDocumentIds').value.split(',');
+    
+    let pollInterval = setInterval(() => {
+      fetch(`/chunklab/dify/batch-status/${taskId}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'completed') {
+            updateProgress(100);
+            completeProgress();
+            clearInterval(pollInterval);
+            
+            // 所有文档都处理完成，更新为"已推送"
+            docIds.forEach(id => {
+              updatePushStatus(id, 'pushed');
+            });
+            
+            showToast('success', `批量处理完成: ${data.success_count}个成功, ${data.error_count}个失败`);
+            setTimeout(() => window.location.reload(), 2000);
+          } else if (data.status === 'error') {
+            completeProgress();
+            clearInterval(pollInterval);
+            showToast('error', '批量处理失败: ' + data.message);
+          } else if (data.status === 'processing') {
+            // 更新进度条
+            const percent = (data.processed_count / data.total_count) * 100;
+            updateProgress(percent);
+          }
+        })
+        .catch(() => {
+          // 出错时不中断轮询，继续尝试
+        });
+    }, 3000); // 每3秒轮询一次
+    
+    // 超时处理 - 3分钟后停止轮询
+    setTimeout(() => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        completeProgress();
+      }
+    }, 180000);
+  }
+  
+  // 更新推送状态的辅助函数 - 只影响推送状态标签
+  function updatePushStatus(docId, status) {
+    // 查找checkbox，通过它找到对应的文档项
+    const checkbox = document.getElementById(`doc${docId}`);
+    if (checkbox) {
+      // 找到checkbox所在的文档项
+      const docItem = checkbox.closest('.document-item');
+      if (docItem) {
+        // 查找带有dify-push-status类的元素
+        const pushStatusEl = docItem.querySelector('.dify-push-status');
+        if (pushStatusEl) {
+          // 更新样式类
+          pushStatusEl.classList.remove('status-chunked', 'status-processing', 'status-pending');
+          
+          if (status === 'pushing') {
+            pushStatusEl.classList.add('status-processing');
+            pushStatusEl.textContent = '推送中';
+          } else if (status === 'pushed') {
+            pushStatusEl.classList.add('status-chunked');
+            pushStatusEl.textContent = '已推送';
+          } else {
+            pushStatusEl.classList.add('status-pending');
+            pushStatusEl.textContent = '未推送';
+          }
+        }
+      }
+    }
+  }
 });
 </script> 

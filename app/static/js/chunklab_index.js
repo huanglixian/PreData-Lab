@@ -121,7 +121,110 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmButtonColor: '#2c3e50'
         });
     }
+
+    // 禁用不符合条件的文档选择框（未切块或正在推送的文档）
+    document.querySelectorAll('.document-checkbox').forEach(checkbox => {
+        const docItem = checkbox.closest('.document-item');
+        const hasToDifyBtn = docItem.querySelector('.btn-info') !== null;
+        
+        if (!hasToDifyBtn) {
+            checkbox.disabled = true;
+            checkbox.title = '该文档未完成切块或正在推送中，无法选择';
+        }
+    });
+    
+    // 全选按钮
+    document.getElementById('selectAll').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.document-checkbox:not(:disabled)').forEach(checkbox => {
+            checkbox.checked = true;
+        });
+    });
+
+    // 全不选按钮
+    document.getElementById('deselectAll').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.document-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    });
+
+    // 批量ToDify按钮
+    document.getElementById('batchToDify').addEventListener('click', function() {
+        const checkedDocs = document.querySelectorAll('.document-checkbox:checked');
+        if (checkedDocs.length === 0) {
+            showToast('warning', '请先选择要推送的文档');
+            return;
+        }
+        
+        // 获取所有选中的文档ID
+        const selectedIds = Array.from(checkedDocs).map(cb => cb.value);
+        
+        // 设置批量模式标记
+        const toDifyModal = document.getElementById('toDifyModal');
+        toDifyModal.setAttribute('data-batch', 'true');
+        
+        // 打开模态框（简化调用方式）
+        const modal = new bootstrap.Modal(toDifyModal);
+        
+        // 设置触发按钮
+        const batchBtn = document.getElementById('batchToDify');
+        batchBtn.setAttribute('data-batch', 'true');
+        batchBtn.setAttribute('data-document-ids', selectedIds.join(','));
+        
+        // 直接显示模态框
+        modal.show();
+        
+        // 手动触发show.bs.modal事件
+        toDifyModal.dispatchEvent(new CustomEvent('show.bs.modal', {
+            bubbles: true,
+            detail: { relatedTarget: batchBtn }
+        }));
+    });
 });
+
+// 全局Toast通知函数
+function showToast(type, message) {
+    const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+    
+    const toastElement = document.createElement('div');
+    toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
+    toastElement.setAttribute('role', 'alert');
+    toastElement.setAttribute('aria-live', 'assertive');
+    toastElement.setAttribute('aria-atomic', 'true');
+    
+    toastElement.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toastElement);
+    
+    const toast = new bootstrap.Toast(toastElement, {
+        delay: 5000,
+        autohide: true
+    });
+    
+    toast.show();
+    
+    // 自动移除
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    container.style.zIndex = '1050';
+    document.body.appendChild(container);
+    return container;
+}
 
 // 确认删除文档
 function confirmDelete(url, filename) {
