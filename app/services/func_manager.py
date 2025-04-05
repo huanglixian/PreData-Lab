@@ -6,16 +6,10 @@ import time
 from pathlib import Path
 
 from ..chunk_func.base import BaseChunkStrategy
-from ..config import get_config
+from ..config import get_config, STRATEGY_DIR, DOCS_DIR
 
 # 配置日志
 logger = logging.getLogger(__name__)
-
-# 策略目录
-STRATEGY_DIR = Path("app/chunk_func")
-
-# 指南和模板目录
-GUIDE_DIR = Path("guide")
 
 # 系统内置的策略，不允许删除
 BUILTIN_STRATEGIES = ['text', 'word', 'excel_dict']
@@ -24,10 +18,10 @@ BUILTIN_STRATEGIES = ['text', 'word', 'excel_dict']
 def get_documentation_content(doc_type):
     """获取文档内容（模板或指南）"""
     if doc_type == "template":
-        file_path = GUIDE_DIR / "template_strategy.py"
+        file_path = DOCS_DIR / "template_strategy.py"
         title = "策略模板示例"
     elif doc_type == "guide":
-        file_path = GUIDE_DIR / "Chunk_Strategy_Guide.md"
+        file_path = DOCS_DIR / "Chunk_Strategy_Guide.md"
         title = "切块策略开发指南"
     else:
         return None, None, "请求的文档类型不存在"

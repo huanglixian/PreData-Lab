@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 import logging
 
-from ..config import get_config
+from ..config import get_config, DOCS_DIR, STRATEGY_DIR
 from ..services.func_manager import get_documentation_content, validate_and_save_strategy, get_strategy_content, delete_strategy
 
 # 配置日志
@@ -31,18 +31,29 @@ async def chunkfunc_index(request: Request, partial: bool = False):
             }
         )
     
+    # 获取文档目录名称
+    docs_url_path = DOCS_DIR.name
+    
     # 渲染完整页面
     return templates.TemplateResponse(
         "chunkfunc/index.html",
         {
             "request": request,
-            "strategies": strategies
+            "strategies": strategies,
+            "docs_path": docs_url_path
         }
     )
 
-@router.get("/doc/{doc_type}")
-async def view_documentation(request: Request, doc_type: str):
+@router.get("/docs/{docs_path}/{doc_type}")
+async def view_documentation(request: Request, docs_path: str, doc_type: str):
     """查看文档（模板或指南）"""
+    # 验证docs_path是否与配置匹配
+    if docs_path != DOCS_DIR.name:
+        return JSONResponse(
+            status_code=404,
+            content={"message": "无效的文档路径"}
+        )
+    
     title, content, error = get_documentation_content(doc_type)
     
     if error:

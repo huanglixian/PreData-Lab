@@ -6,14 +6,14 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>{{ strategy_name }}</h1>
-        <a href="/chunkfunc" class="btn" style="background-color: #375a7f; color: white;">
+        <a href="/chunkfunc" class="btn btn-primary">
             <i class="fas fa-arrow-left me-2"></i>返回列表
         </a>
     </div>
     
     {% if metadata %}
     <div class="card mb-4">
-        <div class="card-header" style="background-color: #3a6ea5; color: white;">
+        <div class="card-header" style="background-color: var(--primary-color); color: white;">
             <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>策略元数据</h5>
         </div>
         <div class="card-body">
@@ -37,10 +37,10 @@
                             <td>
                                 {% if metadata.supported_types %}
                                     {% for type in metadata.supported_types %}
-                                        <span class="badge" style="background-color: #c8d6e5; color: #2d3436;">{{ type }}</span>
+                                        <span class="badge bg-light text-dark">{{ type }}</span>
                                     {% endfor %}
                                 {% else %}
-                                    <span class="badge" style="background-color: #c8d6e5; color: #2d3436;">所有</span>
+                                    <span class="badge bg-light text-dark">所有</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -52,7 +52,7 @@
     {% endif %}
     
     <div class="card">
-        <div class="card-header" style="background-color: #4682b4; color: white;">
+        <div class="card-header" style="background-color: var(--primary-color); color: white;">
             <h5 class="mb-0"><i class="fas fa-code me-2"></i>内容</h5>
         </div>
         <div class="card-body">

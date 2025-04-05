@@ -12,7 +12,7 @@
         background-color: var(--card-bg);
         border-radius: 6px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        padding: 1rem;
+        padding: 0.8rem;
         margin-bottom: 1rem;
         margin-top: 0.5rem;
     }
@@ -27,7 +27,7 @@
     .drop-zone {
         border: 2px dashed var(--border-color);
         border-radius: 6px;
-        padding: 2rem;
+        padding: 1.3rem;
         text-align: center;
         cursor: pointer;
         transition: all 0.3s ease;
@@ -39,9 +39,9 @@
     }
     
     .drop-zone-icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
         color: var(--accent);
-        margin-bottom: 1rem;
+        margin-bottom: 0.6rem;
     }
     
     .document-item {
@@ -129,7 +129,7 @@
 <div class="row">
     <div class="col-12">
         <div class="page-header d-flex justify-content-between align-items-center">
-            <h2>切块实验室</h2>
+            <h3>切块实验室</h3>
             <div class="d-flex align-items-center">
                 <div class="dropdown me-3">
                     <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="helpDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -155,8 +155,8 @@
                     <div class="drop-zone-icon">
                         <i class="fas fa-cloud-upload-alt"></i>
                     </div>
-                    <div class="fs-5 mb-2">拖拽文件到此处或点击选择文件</div>
-                    <div class="text-muted small mb-3">支持格式: {{ allowed_extensions }}</div>
+                    <div class="fs-5 mb-1">拖拽文件到此处或点击选择文件</div>
+                    <div class="text-muted small mb-2">支持格式: {{ allowed_extensions }}</div>
                     <button type="button" id="browseButton" class="btn btn-primary">
                         <i class="fas fa-folder-open me-2"></i>浏览文件
                     </button>

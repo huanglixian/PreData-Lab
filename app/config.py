@@ -12,6 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / 'data'
 UPLOADS_DIR = DATA_DIR / 'uploads'
 DB_DIR = DATA_DIR / 'db'
+STRATEGY_DIR = BASE_DIR / 'app' / 'chunk_func' # 切块函数目录
+DOCS_DIR = BASE_DIR / 'guide'  # 帮助文档目录
 
 # 创建必要的目录
 os.makedirs(UPLOADS_DIR, exist_ok=True)
