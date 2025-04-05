@@ -1,43 +1,53 @@
 # PreDataLab 项目结构
 
-本文档描述了 PreDataLab（预数据实验室）项目的整体结构和各个文件的功能，旨在帮助开发者快速了解项目架构。
+PreDataLab（预数据实验室）有如下功能：
+1、切片函数实验室（Chunk-Func）：管理和上传自定义切片策略，创建和部署新的切片函数。
+2、切片核心实验室（Chunk-Lab）：将不同格式的文档，通过不同的切片策略，进行切片实验。
+3、切片批量ToDify（Chunk-Go）：进行批量文档切片，推送至Dify知识库。（规划中）
+
+本文档描述了项目的整体结构和各个文件的功能，旨在帮助开发者快速了解项目架构。
 
 ## 项目结构树
 
 ```
 PreDataLab/
 ├── app/                      # 应用主目录
-│   ├── chunk_func/          # 切块策略实现
-│   │   ├── __init__.py         # 初始化切块策略模块，自动加载策略
-│   │   ├── base.py             # 基础切块策略类定义
-│   │   ├── text_strategy.py    # 纯文本文件切块策略
-│   │   ├── word_strategy.py    # Word 文档切块策略
-│   │   ├── word2_strategy.py   # Word 文档替代切块策略
-│   │   └── excel_dict_strategy.py # Excel 字典切块策略
+│   ├── chunk_func/           # 具体切块函数的文件夹
 │   ├── routers/              # 路由模块
 │   │   ├── __init__.py         # 初始化路由模块
 │   │   ├── base.py             # 基础路由和主页
-│   │   └── chunklab.py         # ChunkLab 相关路由
+│   │   ├── chunklab.py         # ChunkLab 相关路由
+│   │   └── chunkfunc.py        # ChunkFunc 相关路由（策略管理）
 │   ├── services/             # 服务模块
 │   │   ├── __init__.py         # 初始化服务模块
 │   │   ├── document.py         # 文档处理服务（上传和删除等）
 │   │   ├── chunking.py         # 切块服务
-│   │   └── to_dify_single.py   # 单文件推送Dify平台的集成服务
+│   │   ├── to_dify_single.py   # 单文件推送Dify平台的集成服务
+│   │   └── func_manager.py     # 切块策略管理服务
 │   ├── static/              # 静态资源（CSS、JS、图片等）
 │   ├── templates/           # 页面模板（Jinja2）
 │   │   ├── base.html          # 基础模板文件
 │   │   ├── index.html         # 主页模板
-│   │   └── chunklab/          # ChunkLab模块模板
-│   │       ├── index.html     # ChunkLab主页
-│   │       ├── chunk.html     # 文档切块页面
-│   │       └── to_dify_box.html # Dify集成页面
+│   │   ├── chunklab/          # ChunkLab模块模板
+│   │   │   ├── index.html     # ChunkLab主页
+│   │   │   ├── chunk.html     # 文档切块页面
+│   │   │   └── to_dify_box.html # Dify集成页面
+│   │   └── chunkfunc/         # ChunkFunc模块模板
+│   │       ├── index.html     # 切块函数管理主页
+│   │       ├── strategy_list.html # 切块函数列表
+│   │       └── view.html      # 切块函数详情页面
 │   ├── __init__.py          # 初始化 Python 包
 │   ├── config.py            # 配置文件
 │   ├── database.py          # 数据库模型
-│   └── main.py              # 主应用入口
+│   ├── main.py              # 主应用入口
 ├── data/                    # 数据存储
 │   ├── db/                  # 数据库文件
 │   └── uploads/             # 上传文件存储
+├── guide/                   # 开发指南
+│   ├── QuickStart.md            # 快速上手指南
+│   ├── Chunk_Strategy_Guide.md  # 切块函数-开发文档
+│   ├── template_strategy.py     # 切块函数-代码模板
+│   └── Project_Structure.md     # 本文档，项目结构描述
 ├── .env                     # 环境配置文件
 ├── .env.example             # 环境配置示例
 ├── requirements.txt         # 项目依赖列表
@@ -65,20 +75,16 @@ PreDataLab/
 - **config.py** - 配置文件，包含应用配置和设置，负责动态加载切块策略
 - **database.py** - 数据库模型定义，包含文档和切块的数据模型
 
-#### app/chunk_func/ - 切块策略实现
+#### app/chunk_func/ - 切块函数实现
 
-- **__init__.py** - 初始化切块策略模块，自动加载策略
-- **base.py** - 基础切块策略类定义，定义策略接口和基本方法
-- **text_strategy.py** - 纯文本文件切块策略
-- **word_strategy.py** - Word 文档切块策略
-- **word2_strategy.py** - Word 文档替代切块策略
-- **excel_dict_strategy.py** - Excel 字典切块策略
+切块函数模块，包含各种切块策略实现。该模块负责将文档按照不同策略切分为合适的文本块。
 
 #### app/routers/ - 路由模块
 
 - **__init__.py** - 初始化路由模块，统一注册各模块路由
-- **base.py** - 基础路由和主页，包括系统主页和ChunkLab入口
+- **base.py** - 基础路由和主页，包括系统主页和实验室入口
 - **chunklab.py** - ChunkLab相关路由，包括文档管理、切块操作和Dify集成
+- **chunkfunc.py** - ChunkFunc相关路由，处理切块策略的管理（上传、查看、删除）
 
 #### app/services/ - 服务模块
 
@@ -86,6 +92,7 @@ PreDataLab/
 - **document.py** - 文档处理服务，负责文档上传、解析和删除等
 - **chunking.py** - 切块服务，处理文档分块逻辑和切块任务管理
 - **to_dify_single.py** - 与Dify平台集成的服务，处理数据推送和同步
+- **func_manager.py** - 策略管理服务，处理切块策略的验证、保存和管理
 
 #### app/templates/ - 页面模板
 
@@ -98,8 +105,13 @@ Jinja2模板文件目录，用于渲染HTML页面：
 
 - **index.html** - ChunkLab主页，提供文档上传和处理入口
 - **chunk.html** - 文档切块页面，展示切块结果和切块参数配置界面
-- **view_chunks.html** - 切块列表查看页面，展示切块结果
 - **to_dify_box.html** - Dify集成页面，用于配置和发送数据到Dify平台
+
+##### app/templates/chunkfunc/ - ChunkFunc模块模板
+
+- **index.html** - 切块函数管理主页，展示和管理切块策略
+- **strategy_list.html** - 切块函数列表部分模板
+- **view.html** - 切块函数详情页面，展示策略代码和元数据
 
 #### app/static/ - 静态资源
 
@@ -113,13 +125,9 @@ Jinja2模板文件目录，用于渲染HTML页面：
 ### guide/ 目录 - 开发指南
 
 - **QuickStart.md** - 快速上手指南
-- **Chunk_Strategy_Guide.md** - 切块策略开发文档
-- **template_strategy.py** - 切块策略代码模板
+- **Chunk_Strategy_Guide.md** - 切块函数开发文档
+- **template_strategy.py** - 切块函数代码模板
 - **Project_Structure.md** - 本文档，项目结构描述
-
-### bak/ 目录 - 备份文件
-
-存储项目的备份和历史版本文件
 
 ## 技术架构
 
@@ -140,19 +148,26 @@ Jinja2模板文件目录，用于渲染HTML页面：
 
 ## 主要功能模块
 
-### 文档管理模块
+### 文档管理模块 (ChunkLab)
 
 - 支持多种文档格式（Word、PDF、TXT、Excel等）的上传和处理
 - 文档列表展示和管理
 - 文档状态跟踪和管理
 
-### 切块处理模块
+### 切块处理模块 (ChunkLab)
 
 - 提供多种切块策略，支持不同类型文档的处理
 - 可配置的切块参数（大小、重叠度）
 - 切块任务异步处理
 - 可视化预览切块结果
 - 元数据保留（如标题层级、页码等）
+
+### 策略管理模块 (ChunkFunc)
+
+- 切块函数上传、查看和管理
+- 支持自定义切块函数的在线验证
+- 函数元数据展示
+- 函数开发文档和模板查看
 
 ### Dify 集成模块
 
@@ -181,4 +196,4 @@ Jinja2模板文件目录，用于渲染HTML页面：
    - 将Excel文件按行转换为字典
    - 每行作为独立切片
 
-开发者可以参考 `template_strategy.py` 和 `Chunk_Strategy_Guide.md` 添加自己的切块策略。 
+开发者可以通过ChunkFunc模块上传自定义切块函数，或参考 `template_strategy.py` 和 `Chunk_Strategy_Guide.md` 添加新的切块策略。 
