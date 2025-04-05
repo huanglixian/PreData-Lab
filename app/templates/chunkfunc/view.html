@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}{{ strategy_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{{ strategy_name }}</h1>
+        <a href="/chunkfunc" class="btn" style="background-color: #375a7f; color: white;">
+            <i class="fas fa-arrow-left me-2"></i>返回列表
+        </a>
+    </div>
+    
+    {% if metadata %}
+    <div class="card mb-4">
+        <div class="card-header" style="background-color: #3a6ea5; color: white;">
+            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>策略元数据</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <tbody>
+                        <tr>
+                            <th style="width: 20%;">名称</th>
+                            <td style="width: 80%;">{{ metadata.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>显示名称</th>
+                            <td>{{ metadata.display_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>描述</th>
+                            <td>{{ metadata.description }}</td>
+                        </tr>
+                        <tr>
+                            <th>支持的文件类型</th>
+                            <td>
+                                {% if metadata.supported_types %}
+                                    {% for type in metadata.supported_types %}
+                                        <span class="badge" style="background-color: #c8d6e5; color: #2d3436;">{{ type }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="badge" style="background-color: #c8d6e5; color: #2d3436;">所有</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="card">
+        <div class="card-header" style="background-color: #4682b4; color: white;">
+            <h5 class="mb-0"><i class="fas fa-code me-2"></i>内容</h5>
+        </div>
+        <div class="card-body">
+            <pre class="bg-light p-3" style="border-radius: 5px; overflow-x: auto; border: 1px solid #e0e0e0;"><code>{{ strategy_content }}</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -11,8 +11,8 @@ import inspect
 
 from ..database import Document, Chunk, get_db
 from ..config import get_config
-from .chunking.base import BaseChunkStrategy
-from .chunking.word_strategy import WordChunkStrategy
+from ..chunk_func.base import BaseChunkStrategy
+from ..chunk_func.word_strategy import WordChunkStrategy
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -189,7 +189,7 @@ class ChunkService:
         # 寻找匹配的策略
         for strategy_meta in strategies:
             if strategy_meta.get('name') == strategy_name:
-                module_path = f"app.chunklab.chunking.{strategy_name}_strategy"
+                module_path = f"app.chunk_func.{strategy_name}_strategy"
                 
                 try:
                     # 动态导入模块

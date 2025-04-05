@@ -1,23 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, BackgroundTasks, UploadFile, File
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 from datetime import datetime
 import logging
-import traceback
-import os
-import time
-import json
-import shutil
-from pathlib import Path
-import requests
 
 from ..database import get_db, Document, Chunk
 from ..config import APP_CONFIG, get_config
 from .. import templates
-from .document_service import DocumentService
-from .chunk_service import ChunkService
-from .dify_service import DifyService
+from ..services.document import DocumentService
+from ..services.chunking import ChunkService
+from ..services.to_dify_single import DifySingleService
 
 router = APIRouter()
 
@@ -25,32 +18,10 @@ router = APIRouter()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# 文档服务和切块服务实例
+# 服务实例
 document_service = DocumentService()
 chunk_service = ChunkService()
-dify_service = DifyService()
-
-# 主页面路由
-@router.get("/", response_class=RedirectResponse)
-async def redirect_to_index():
-    """重定向到ChunkLab主页"""
-    return RedirectResponse(url="/chunklab/index")
-
-@router.get("/index")
-async def index(request: Request, db: Session = Depends(get_db)):
-    """ChunkLab主页面 - 文档上传和列表"""
-    documents = db.query(Document).order_by(Document.upload_time.desc()).all()
-    
-    return templates.TemplateResponse(
-        "chunklab/index.html",
-        {
-            "request": request,
-            "documents": documents,
-            "allowed_extensions": ", ".join(APP_CONFIG['ALLOWED_EXTENSIONS']),
-            "now": datetime.now,
-            "dify_api_server": get_config('DIFY_API_SERVER')
-        }
-    )
+dify_service = DifySingleService()
 
 # 文档管理路由
 @router.post("/upload")

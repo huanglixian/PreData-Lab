@@ -2,20 +2,20 @@
 import sys
 
 # 第三方库导入
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 # 本地模块导入
 from . import templates
 from .database import Base, engine
-from .routes import main_router
+from .routers import base
+from .routers import chunklab
+from .routers import chunkfunc
 from .config import APP_CONFIG
-from datetime import datetime
 
 # 创建FastAPI应用
-app = FastAPI(title="预数据实验室", description="文档和数据预处理工具集")
+app = FastAPI(title="ChunkWork", description="文档切块工作台")
 
 # 配置CORS
 app.add_middleware(
@@ -28,18 +28,15 @@ app.add_middleware(
 
 # 挂载静态文件
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/guide", StaticFiles(directory="guide"), name="guide_files")
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
 
 # 注册路由
-app.include_router(main_router)
-
-# 主页路由
-@app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    """系统主页"""
-    return templates.TemplateResponse("index.html", {"request": request, "now": datetime.now})
+app.include_router(base.router)
+app.include_router(chunklab.router, prefix="/chunklab", tags=["chunklab"])
+app.include_router(chunkfunc.router, prefix="/chunkfunc", tags=["chunkfunc"])
 
 if __name__ == "__main__":
     import uvicorn

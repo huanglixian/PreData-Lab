@@ -42,11 +42,11 @@ APP_CONFIG = {
 # 为避免循环导入问题，使用函数延迟加载
 def get_chunk_strategies():
     try:
-        from app.chunklab.chunking import list_strategies
+        from app.chunk_func import list_strategies
         return list_strategies()
     except ImportError:
         # 如果模块还未准备好，返回默认列表
-        return [{'name': 'word', 'display_name': 'Word文档切块策略'}]
+        return [{'name': 'text', 'display_name': '默认文本切块策略'}]
 
 # 在请求时动态加载策略列表
 def get_config(key=None):

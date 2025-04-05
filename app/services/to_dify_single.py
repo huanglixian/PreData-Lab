@@ -13,7 +13,7 @@ from ..database import Document, Chunk, get_db, get_db_session
 # 配置日志
 logger = logging.getLogger(__name__)
 
-class DifyService:
+class DifySingleService:
     """处理与Dify API交互的服务类"""
     
     def __init__(self):

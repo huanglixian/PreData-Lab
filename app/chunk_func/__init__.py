@@ -22,7 +22,7 @@ def list_strategies() -> List[Dict[str, Any]]:
         if file.endswith('_strategy.py'):
             # 导入模块
             module_name = file[:-3]  # 去掉.py后缀
-            module_path = f"app.chunklab.chunking.{module_name}"
+            module_path = f"app.chunk_func.{module_name}"
             
             try:
                 module = importlib.import_module(module_path)

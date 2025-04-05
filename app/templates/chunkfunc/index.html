@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}切块策略管理{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">切块策略管理</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100" style="min-height: auto;">
+                <div class="card-header" style="background-color: #4682b4; color: white;">
+                    <h5 class="mb-0"><i class="fas fa-upload me-2"></i>上传新策略</h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <!-- 仅保留JS上传，使用传统表单的样式 -->
+                    <div class="mb-3 mt-3">
+                        <input type="file" class="form-control" id="jsFileInput" accept=".py" required>
+                        <small class="form-text text-muted ms-1">只接受Python(.py)文件，并且必须包含继承自BaseChunkStrategy的类</small>
+                    </div>
+                    
+                    <!-- 按钮放在提示文字下方 -->
+                    <div class="mb-2 position-relative ms-1">
+                        <button type="button" onclick="uploadJS()" class="btn" style="background-color: #375a7f; color: white;">上传</button>
+                        <!-- 结果显示区域（绝对定位） -->
+                        <div id="jsResult" class="position-absolute" style="top: calc(100% + 12px); left: 0; font-size: 0.8rem; height: 20px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100" style="min-height: auto;">
+                <div class="card-header" style="background-color: #3a6ea5; color: white;">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>开发说明</h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p style="color: rgba(0,0,0,0.8);" class="mb-2">上传的Python文件必须满足以下条件:</p>
+                    <ul style="color: rgba(0,0,0,0.8);" class="mb-3">
+                        <li>包含继承自<code>BaseChunkStrategy</code>的类</li>
+                        <li>实现<code>get_metadata()</code>方法，返回策略的元数据</li>
+                        <li>实现<code>chunk_no_meta()</code>或<code>chunk_with_meta()</code>方法之一</li>
+                    </ul>
+                    <div class="mb-1">
+                        <a href="/chunkfunc/doc/template" target="_blank" class="btn btn-outline-primary">查看模板示例</a>
+                        <a href="/chunkfunc/doc/guide" target="_blank" class="btn btn-outline-primary">查看开发指南</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header" style="background-color: #375a7f; color: white;">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>已安装的策略</h5>
+        </div>
+        <div class="card-body">
+            {% if strategies %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>显示名称</th>
+                                <th>描述</th>
+                                <th>支持的文件类型</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for strategy in strategies %}
+                            <tr>
+                                <td>{{ strategy.display_name }}</td>
+                                <td>{{ strategy.description }}</td>
+                                <td>
+                                    {% if strategy.supported_types %}
+                                        <span class="badge" style="background-color: #c8d6e5; color: #2d3436;">{{ strategy.supported_types|join(', ') }}</span>
+                                    {% else %}
+                                        <span class="badge" style="background-color: #c8d6e5; color: #2d3436;">所有</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="/chunkfunc/view/{{ strategy.name }}" class="btn btn-sm btn-outline-primary">查看</a>
+                                    <button type="button" onclick="deleteStrategy('{{ strategy.name }}')" class="btn btn-sm btn-outline-danger">删除</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    没有找到可用的切块策略
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 内联脚本，确保总是执行 -->
+<script>
+// 通用函数：显示消息并在3秒后消失
+function showMessage(element, message, type) {
+    const msgClass = type === 'success' ? 'text-success' : 
+                    type === 'info' ? 'text-info' : 'text-danger';
+    
+    document.getElementById(element).innerHTML = '<span class="' + msgClass + '">' + message + '</span>';
+    
+    // 3秒后消失
+    setTimeout(function() {
+        document.getElementById(element).innerHTML = '';
+    }, 3000);
+}
+
+// 上传文件函数
+function uploadFile(file, resultDiv) {
+    showMessage(resultDiv, '上传中...', 'info');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/chunkfunc/upload', true);
+    
+    xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300 || xhr.status === 302) {
+            // 显示成功消息，并设置短暂延迟后刷新
+            showMessage(resultDiv, '上传成功!', 'success');
+            // 给用户足够看到成功提示的时间（800毫秒），然后再刷新
+            setTimeout(function() {
+                window.location.reload();
+            }, 800);
+        } else {
+            // 尝试解析错误信息
+            try {
+                const errorData = JSON.parse(xhr.responseText);
+                showMessage(resultDiv, '上传失败: ' + errorData.message, 'error');
+            } catch (e) {
+                showMessage(resultDiv, '上传失败: 状态码 ' + xhr.status, 'error');
+            }
+        }
+    };
+    
+    xhr.onerror = function() {
+        showMessage(resultDiv, '网络错误', 'error');
+    };
+    
+    xhr.send(formData);
+}
+
+// JavaScript上传按钮处理
+function uploadJS() {
+    const fileInput = document.getElementById('jsFileInput');
+    if (!fileInput.files || fileInput.files.length === 0) {
+        showMessage('jsResult', '请先选择文件', 'error');
+        return;
+    }
+    
+    // 检查文件名是否以_strategy.py结尾
+    const fileName = fileInput.files[0].name;
+    if (!fileName.endsWith('_strategy.py')) {
+        showMessage('jsResult', '文件名必须以_strategy.py结尾', 'error');
+        return;
+    }
+    
+    uploadFile(fileInput.files[0], 'jsResult');
+}
+
+// 删除策略函数
+function deleteStrategy(strategyName) {
+    if (!confirm('确定要删除策略 ' + strategyName + ' 吗？此操作不可撤销')) {
+        return;
+    }
+    
+    fetch('/chunkfunc/delete/' + strategyName, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('删除请求失败，状态码: ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        window.location.reload();
+    })
+    .catch(error => {
+        alert('删除失败: ' + error.message);
+    });
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<!-- 保持空白，避免与base.html中的scripts冲突 -->
+{% endblock %} 
