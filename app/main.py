@@ -15,7 +15,7 @@ from .routers import chunkfunc
 from .config import APP_CONFIG
 
 # 创建FastAPI应用
-app = FastAPI(title="ChunkWork", description="文档切块工作台")
+app = FastAPI(title="ChunkSpace", description="文档切块工作台")
 
 # 配置CORS
 app.add_middleware(

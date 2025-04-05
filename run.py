@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-预数据实验室启动脚本
+ChunkSpace启动脚本
 """
 import os
 import sys
@@ -12,14 +12,14 @@ import time
 from app.config import APP_CONFIG
 
 def main():
-    """运行预数据实验室应用"""
+    """运行ChunkSpace应用"""
     port = APP_CONFIG['PORT']
     # 先尝试杀死占用端口的进程
     kill_process_on_port(port)
     
     print(f"""
     ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-    ┃  预数据实验室 - 数据处理工具集        ┃
+    ┃  ChunkSpace - 数据处理工具集        ┃
     ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
     ┃  运行地址: http://{APP_CONFIG['HOST']}:{port}  ┃
     ┃  调试模式: {'开启' if APP_CONFIG['DEBUG'] else '关闭'}                    ┃
@@ -36,7 +36,7 @@ def main():
             log_level="info"
         )
     except KeyboardInterrupt:
-        print("\n已停止预数据实验室服务")
+        print("\n已停止ChunkSpace服务")
         sys.exit(0)
 
 def kill_process_on_port(port):

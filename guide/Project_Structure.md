@@ -1,6 +1,6 @@
 # PreDataLab 项目结构
 
-PreDataLab（预数据实验室）有如下功能：
+PreDataLab（ChunkSpace（切块工作室））有如下功能：
 1、切片函数实验室（Chunk-Func）：管理和上传自定义切片策略，创建和部署新的切片函数。
 2、切片核心实验室（Chunk-Lab）：将不同格式的文档，通过不同的切片策略，进行切片实验。
 3、切片批量ToDify（Chunk-Go）：进行批量文档切片，推送至Dify知识库。（规划中）
@@ -23,7 +23,7 @@ PreDataLab/
 │   │   ├── document.py         # 文档处理服务（上传和删除等）
 │   │   ├── chunking.py         # 切块服务
 │   │   ├── to_dify_single.py   # 单文件推送Dify平台的集成服务
-│   │   └── func_manager.py     # 切块策略管理服务
+│   │   └── func_manager.py     # 切片函数管理服务
 │   ├── static/              # 静态资源（CSS、JS、图片等）
 │   ├── templates/           # 页面模板（Jinja2）
 │   │   ├── base.html          # 基础模板文件

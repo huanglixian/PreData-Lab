@@ -17,7 +17,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/")
 async def chunkfunc_index(request: Request, partial: bool = False):
-    """ChunkFunc主页 - 切块策略管理页面"""
+    """ChunkFunc主页 - 切片函数管理页面"""
     # 获取所有现有策略
     strategies = get_config('CHUNK_STRATEGIES')
     
