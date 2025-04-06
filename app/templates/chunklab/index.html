@@ -196,7 +196,7 @@
                                     {% if document.status == '已切块' %}
                                     <span class="mx-2">|</span>
                                     <span class="document-status 
-                                        {% if document.dify_push_status == 'pushed' %}status-chunked{% elif document.dify_push_status == 'pushing' %}status-processing{% else %}status-pending{% endif %}">
+                                        {% if document.dify_push_status == 'pushed' %}status-chunked{% elif document.dify_push_status == 'pushing' %}status-processing{% else %}status-pending{% endif %} dify-push-status">
                                         {% if document.dify_push_status == 'pushed' %}已推送{% elif document.dify_push_status == 'pushing' %}推送中{% else %}未推送{% endif %}
                                     </span>
                                     {% endif %}
@@ -208,7 +208,7 @@
                                 </a>
                                 {% if document.status == '已切块' and document.dify_push_status != 'pushing' %}
                                 <button type="button" class="btn btn-info btn-sm" 
-                                        data-bs-toggle="modal" data-bs-target="#toDifyModal"
+                                        data-bs-toggle="modal" data-bs-target="#singleToDifyModal"
                                         data-document-id="{{ document.id }}">
                                     <i class="fas fa-cloud-upload-alt me-1"></i>ToDify
                                 </button>
