@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # 批量任务状态跟踪
 batch_tasks = {}
 
-class DifyService:
+class DifyBatchService:
     """处理与Dify API交互的服务类"""
     
     def __init__(self):

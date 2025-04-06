@@ -17,7 +17,8 @@ from ..config import APP_CONFIG, get_config
 from .. import templates
 from .document_service import DocumentService
 from .chunk_service import ChunkService
-from .dify_service import DifyService
+from .to_dify_single import DifySingleService
+from .to_dify_batch import DifyBatchService
 
 router = APIRouter()
 
@@ -28,7 +29,8 @@ logger = logging.getLogger(__name__)
 # 文档服务和切块服务实例
 document_service = DocumentService()
 chunk_service = ChunkService()
-dify_service = DifyService()
+dify_single_service = DifySingleService()
+dify_batch_service = DifyBatchService()
 
 # 主页面路由
 @router.get("/", response_class=RedirectResponse)
@@ -169,30 +171,30 @@ async def get_strategies_for_filetype(file_ext: str):
 @router.get("/dify/knowledge-bases")
 async def get_dify_knowledge_bases():
     """获取Dify知识库列表"""
-    return dify_service.get_knowledge_bases()
+    return dify_single_service.get_knowledge_bases()
 
 @router.get("/dify/test-connection")
 async def test_dify_connection():
     """测试与Dify服务器的连接"""
-    return dify_service.test_connection()
+    return dify_single_service.test_connection()
 
 @router.post("/dify/push/{document_id}")
 async def push_to_dify(document_id: int, dataset_id: str = Form(...), db: Session = Depends(get_db)):
-    """推送文档到Dify知识库"""
-    return dify_service.push_document_to_dify(document_id, dataset_id, db)
+    """推送单个文档到Dify知识库"""
+    return dify_single_service.push_document_to_dify(document_id, dataset_id, db)
 
 @router.post("/dify/push-batch")
 async def push_batch_to_dify(document_ids: str = Form(...), dataset_id: str = Form(...), db: Session = Depends(get_db)):
     """批量推送多个文档到Dify知识库"""
     doc_ids = document_ids.split(',')
-    return dify_service.push_batch_to_dify(doc_ids, dataset_id, db)
+    return dify_batch_service.push_batch_to_dify(doc_ids, dataset_id, db)
 
 @router.get("/dify/batch-status/{task_id}")
 async def get_batch_status(task_id: str):
     """获取批量处理的状态"""
-    return dify_service.get_batch_status(task_id)
+    return dify_batch_service.get_batch_status(task_id)
 
 @router.get("/dify/status/{document_id}")
 async def get_dify_push_status(document_id: int, db: Session = Depends(get_db)):
     """获取文档推送到Dify的状态"""
-    return dify_service.get_push_status(document_id, db) 
+    return dify_single_service.get_push_status(document_id, db) 

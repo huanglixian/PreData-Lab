@@ -161,11 +161,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedIds = Array.from(checkedDocs).map(cb => cb.value);
         
         // 设置批量模式标记
-        const toDifyModal = document.getElementById('toDifyModal');
-        toDifyModal.setAttribute('data-batch', 'true');
+        const batchToDifyModal = document.getElementById('batchToDifyModal');
+        batchToDifyModal.setAttribute('data-batch', 'true');
         
         // 打开模态框（简化调用方式）
-        const modal = new bootstrap.Modal(toDifyModal);
+        const modal = new bootstrap.Modal(batchToDifyModal);
         
         // 设置触发按钮
         const batchBtn = document.getElementById('batchToDify');
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.show();
         
         // 手动触发show.bs.modal事件
-        toDifyModal.dispatchEvent(new CustomEvent('show.bs.modal', {
+        batchToDifyModal.dispatchEvent(new CustomEvent('show.bs.modal', {
             bubbles: true,
             detail: { relatedTarget: batchBtn }
         }));

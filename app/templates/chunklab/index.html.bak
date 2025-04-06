@@ -222,7 +222,7 @@
                                 </a>
                                 {% if document.status == '已切块' and document.dify_push_status != 'pushing' %}
                                 <button type="button" class="btn btn-info btn-sm" 
-                                        data-bs-toggle="modal" data-bs-target="#singleToDifyModal"
+                                        data-bs-toggle="modal" data-bs-target="#toDifyModal"
                                         data-document-id="{{ document.id }}">
                                     <i class="fas fa-cloud-upload-alt me-1"></i>ToDify
                                 </button>
