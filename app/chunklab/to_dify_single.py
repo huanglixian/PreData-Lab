@@ -41,7 +41,7 @@ class DifySingleService:
     def test_connection(self) -> Dict[str, Any]:
         """测试与Dify服务器的连接"""
         try:
-            url = f"{self.api_server}/v1/health"  # 大多数API服务都有健康检查接口
+            url = f"{self.api_server}/v1/health"
             response = requests.get(url, headers=self.get_headers(), timeout=5)
             
             # 如果健康检查接口返回成功
@@ -54,7 +54,7 @@ class DifySingleService:
                 try:
                     test_url = f"{self.api_server}{endpoint}"
                     test_response = requests.get(test_url, headers=self.get_headers(), timeout=5)
-                    if test_response.status_code < 300 or test_response.status_code == 401:  # 401表示需要认证，但服务器是通的
+                    if test_response.status_code < 300 or test_response.status_code == 401:
                         return {'status': 'success', 'message': '连接成功', 'details': {'api_server': self.api_server}}
                 except:
                     continue
@@ -68,7 +68,7 @@ class DifySingleService:
             return {'status': 'error', 'message': f'连接测试失败: {str(e)}', 'details': {'api_server': self.api_server}}
     
     def push_document_to_dify(self, document_id: int, dataset_id: str, db: Session) -> JSONResponse:
-        """启动文档推送到Dify知识库的任务（异步方式）"""
+        """启动文档推送到Dify知识库的任务"""
         try:
             # 获取文档
             document = db.query(Document).filter(Document.id == document_id).first()
@@ -83,7 +83,7 @@ class DifySingleService:
             document.dify_push_status = "pushing"
             db.commit()
             
-            # 启动后台任务，独立执行推送流程
+            # 启动后台任务
             from threading import Thread
             thread = Thread(target=self._do_push_document, args=(document_id, dataset_id))
             thread.daemon = True
@@ -100,29 +100,25 @@ class DifySingleService:
     
     def _do_push_document(self, document_id: int, dataset_id: str):
         """实际执行推送的后台任务"""
-        # 获取新的数据库会话
         db = get_db_session()
         
         try:
             # 获取文档和切块
             document = db.query(Document).filter(Document.id == document_id).first()
             if not document:
-                logger.error(f"推送任务错误: 文档ID {document_id} 不存在")
                 return
                 
             chunks = db.query(Chunk).filter(Chunk.document_id == document_id).order_by(Chunk.sequence).all()
             if not chunks or not os.path.exists(document.filepath):
-                document.dify_push_status = None  # 重置状态为未推送
+                document.dify_push_status = None
                 db.commit()
-                logger.error(f"推送任务错误: 文档无效或没有切块")
                 return
             
             # 创建文档并获取ID
             document_response = self._create_dify_document_by_file(document, dataset_id)
             if document_response.get('status') != 'success':
-                document.dify_push_status = None  # 重置状态
+                document.dify_push_status = None
                 db.commit()
-                logger.error(f"创建Dify文档失败: {document_response.get('message', '未知错误')}")
                 return
             
             data = document_response.get('data', {})
@@ -130,16 +126,14 @@ class DifySingleService:
             batch_id = data.get('batch', dify_document_id)
             
             if not dify_document_id:
-                document.dify_push_status = None  # 重置状态
+                document.dify_push_status = None
                 db.commit()
-                logger.error("无法获取Dify文档ID")
                 return
             
             # 等待文档处理完成
             if not self._wait_for_document_processing(dataset_id, batch_id):
-                document.dify_push_status = None  # 重置状态
+                document.dify_push_status = None
                 db.commit()
-                logger.error("Dify文档处理超时")
                 return
             
             # 删除自动生成的段落
@@ -151,26 +145,23 @@ class DifySingleService:
             # 添加自定义切块
             add_response = self._add_segments_to_document(chunks, dataset_id, dify_document_id)
             if add_response.get('status') != 'success':
-                document.dify_push_status = None  # 重置状态
+                document.dify_push_status = None
                 db.commit()
-                logger.error(f"添加切块到Dify失败: {add_response.get('message', '未知错误')}")
                 return
             
             # 更新状态为已推送
             document.dify_push_status = "pushed"
             db.commit()
-            logger.info(f"文档ID {document_id} 推送成功，共 {len(chunks)} 个切块")
             
         except Exception as e:
             logger.error(f"推送任务执行失败: {str(e)}")
-            # 尝试更新状态为未推送
             try:
                 document = db.query(Document).filter(Document.id == document_id).first()
                 if document:
-                    document.dify_push_status = None  # 重置状态为未推送
+                    document.dify_push_status = None
                     db.commit()
-            except Exception as db_error:
-                logger.error(f"更新文档状态失败: {str(db_error)}")
+            except:
+                pass
         finally:
             db.close()
     

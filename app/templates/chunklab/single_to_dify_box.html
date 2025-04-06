@@ -27,11 +27,6 @@
               <option value="" selected disabled>请先测试连接</option>
             </select>
           </div>
-          
-          <div class="alert alert-info" role="alert">
-            <i class="fas fa-info-circle me-2"></i>
-            将把文档及其切块推送到Dify知识库，每个切块将作为一个段落导入。
-          </div>
         </form>
         
         <!-- 推送结果反馈 -->
@@ -149,6 +144,20 @@ document.addEventListener('DOMContentLoaded', function() {
     errorDiv.style.display = 'block';
   }
   
+  // 更新推送状态（简化版）
+  function updatePushStatus(docId, status) {
+    const docSelector = `[data-bs-target="#singleToDifyModal"][data-document-id="${docId}"]`;
+    const statusEl = document.querySelector(docSelector)?.closest('.document-item')?.querySelector('.dify-push-status');
+    
+    if (statusEl) {
+      statusEl.classList.remove('status-chunked', 'status-processing', 'status-pending');
+      statusEl.classList.add(status === 'pushing' ? 'status-processing' : 
+                         status === 'pushed' ? 'status-chunked' : 'status-pending');
+      statusEl.textContent = status === 'pushing' ? '推送中' : 
+                         status === 'pushed' ? '已推送' : '未推送';
+    }
+  }
+  
   // 推送到Dify
   pushBtn.addEventListener('click', function() {
     const documentId = document.getElementById('singleDifyDocumentId').value;
@@ -158,6 +167,9 @@ document.addEventListener('DOMContentLoaded', function() {
       showError('请选择知识库');
       return;
     }
+    
+    // 更新状态为推送中
+    updatePushStatus(documentId, 'pushing');
     
     // 禁用按钮并显示加载状态
     pushBtn.disabled = true;
@@ -180,8 +192,33 @@ document.addEventListener('DOMContentLoaded', function() {
       if (data.status === 'processing') {
         // 关闭弹窗并显示全局提示
         bootstrap.Modal.getInstance(singleToDifyModal).hide();
-        showToast('info', '文档推送已开始，后台处理中...');
-        setTimeout(() => window.location.reload(), 3000);
+        
+        // 简单清理可能残留的背景遮罩
+        setTimeout(() => {
+          document.body.classList.remove('modal-open');
+          const backdrop = document.querySelector('.modal-backdrop');
+          if (backdrop) backdrop.remove();
+          
+          // 使用与base.html兼容的方式显示通知
+          try {
+            window.showToast('info', '文档推送已开始，后台处理中...');
+          } catch(e) {}
+        }, 300);
+        
+        // 简单轮询检查推送状态
+        setTimeout(() => {
+          fetch(`/chunklab/dify/status/${documentId}`)
+            .then(response => response.json())
+            .then(statusData => {
+              if (statusData.status === 'pushed') {
+                try {
+                  window.showToast('success', '文档推送成功');
+                } catch(e) {}
+                updatePushStatus(documentId, 'pushed');
+              }
+            })
+            .catch(() => {});
+        }, 5000);
       } else {
         showError(data.message || '推送失败');
       }
