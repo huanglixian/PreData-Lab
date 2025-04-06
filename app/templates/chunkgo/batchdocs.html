@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block title %}批量处理 - {{ folder.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 基础容器样式 */
+    .card, .upload-container, .documents-container, .tasks-container {
+        background-color: var(--card-bg);
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 1.2rem;
+    }
+    
+    /* 布局与区块样式 */
+    .page-header { margin-bottom: 1.5rem; }
+    .upload-container { padding: 0.6rem; }
+    .tasks-documents-container { margin-top: 1rem; }
+    
+    .drop-zone {
+        border: 2px dashed var(--border-color);
+        border-radius: 6px;
+        padding: 0.8rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    
+    .drop-zone-active {
+        border-color: var(--accent);
+        background-color: rgba(52, 152, 219, 0.05);
+    }
+    
+    .drop-zone-icon {
+        font-size: 2rem;
+        color: var(--accent);
+        margin-bottom: 0.8rem;
+    }
+    
+    /* 设置区域与卡片样式 */
+    .settings-container .card {
+        flex-grow: 1;
+        border: 1px solid rgba(0,0,0,0.1);
+        background-color: #fafafa;
+    }
+    
+    .settings-container .card-body {
+        padding: 0.75rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .settings-container .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #2b5876;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .settings-container .row > .col-md-6 { display: flex; }
+    .settings-container .card-body form { flex-grow: 1; }
+    .settings-container .card-body .mb-3 { margin-bottom: 0.5rem !important; }
+    .settings-container .card-body .btn.mt-auto { margin-top: 0.5rem; }
+    
+    /* 按钮样式 */
+    #startBatchChunkBtn, #startBatchDifyBtn {
+        background-color: #2b5876;
+        border-color: #2b5876;
+        color: #ffffff;
+        transition: background-color 0.15s ease-in-out;
+    }
+    
+    #startBatchChunkBtn:hover, #startBatchDifyBtn:not(:disabled):hover {
+        background-color: #1e3c50;
+        border-color: #1e3c50;
+    }
+    
+    #startBatchDifyBtn:disabled { opacity: 0.65; }
+    
+    /* 文档和任务样式 */
+    .document-item {
+        border-bottom: 1px solid rgba(0,0,0,0.05);
+        padding: 1rem 0;
+    }
+    
+    .document-item:last-child { border-bottom: none; }
+    
+    .document-name {
+        font-weight: bold;
+        color: var(--text-color);
+    }
+    
+    .document-meta {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+    }
+    
+    .document-status {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background-color: var(--light-bg);
+    }
+    
+    /* 状态样式 */
+    .status-chunked { background-color: #d1ecf1; color: #0c5460; }
+    .status-processing { background-color: #fff3cd; color: #856404; }
+    .status-pending { background-color: #e2e3e5; color: #383d41; }
+    .status-pushed { background-color: #d4edda; color: #155724; }
+    
+    /* 进度和上传状态 */
+    .progress-container {
+        margin-top: 20px;
+        display: none;
+    }
+    
+    .upload-status {
+        margin-top: 5px;
+        font-size: 14px;
+        color: var(--text-muted);
+    }
+    
+    .task-item {
+        border: 1px solid rgba(0,0,0,0.05);
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background-color: #ffffff;
+    }
+    
+    .task-name { 
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .task-progress { margin: 0.5rem 0; }
+    
+    /* 选项卡样式 */
+    .nav-tabs .nav-link { color: var(--text-muted); }
+    .nav-tabs .nav-link.active { 
+        color: var(--primary-color);
+        font-weight: bold;
+    }
+    
+    .tab-content { padding-top: 1.5rem; }
+    .select-all-container { margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <h3>批量处理 - {{ folder.name }}</h3>
+            <a href="/chunkgo" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>返回文件夹列表
+            </a>
+        </div>
+        
+        <!-- 文档上传区域 -->
+        <div class="upload-container">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div id="dropZone" class="drop-zone">
+                    <div class="drop-zone-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="fs-5 mb-1">上传文件：拖拽文件到此处，或点击选择文件/文件夹</div>
+                    <div class="text-muted small mb-2">支持格式: {{ allowed_extensions }}</div>
+                    <div class="d-flex justify-content-center gap-3">
+                        <button type="button" id="browseButton" class="btn btn-primary">
+                            <i class="fas fa-file me-2"></i>选择文件
+                        </button>
+                        <button type="button" id="browseFolderButton" class="btn btn-primary">
+                            <i class="fas fa-folder-open me-2"></i>选择文件夹
+                        </button>
+                    </div>
+                    <input type="file" id="fileInput" style="display: none" multiple>
+                    <input type="file" id="folderInput" style="display: none" webkitdirectory directory multiple>
+                </div>
+                
+                <div class="progress-container" id="progressContainer">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             id="uploadProgress" role="progressbar" 
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
+                             style="width: 0%">0%</div>
+                    </div>
+                    <div class="upload-status" id="uploadStatus">准备上传...</div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 设置区域 -->
+        <div class="settings-container">
+            <div class="row">
+                <div class="col-md-6 d-flex">
+                    <div class="card w-100">
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title">批量切块参数</h6>
+                            <form id="batchChunkForm" class="flex-grow-1">
+                                <div class="mb-3">
+                                    <label for="chunkStrategy" class="form-label">切块策略</label>
+                                    <select class="form-select" id="chunkStrategy" name="chunk_strategy" required>
+                                        <option value="" selected disabled>选择切块策略</option>
+                                        {% for strategy in chunk_strategies %}
+                                        <option value="{{ strategy.name }}">{{ strategy.display_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-6">
+                                        <div class="mb-3">
+                                            <label for="chunkSize" class="form-label">切块大小</label>
+                                            <input type="number" class="form-control" id="chunkSize" name="chunk_size"
+                                                value="{{ default_chunk_size }}" min="50" max="2000" required>
+                                            <div class="form-text small">建议值: 200-500</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="mb-3">
+                                            <label for="overlap" class="form-label">重叠度</label>
+                                            <input type="number" class="form-control" id="overlap" name="overlap"
+                                                value="{{ default_overlap }}" min="0" max="200" required>
+                                            <div class="form-text small">建议值: 0-50</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                            <button type="button" id="startBatchChunkBtn" class="btn w-100 mt-auto">
+                                <i class="fas fa-cut me-2"></i>批量切块
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 d-flex">
+                    <div class="card w-100">
+                        <div class="card-body d-flex flex-column">
+                            <h6 class="card-title">批量推送至Dify</h6>
+                            <form id="batchDifyForm" class="flex-grow-1">
+                                <div class="mb-3">
+                                    <label for="difyApiServer" class="form-label">Dify API服务器地址</label>
+                                    <input type="text" class="form-control" id="difyApiServer" value="{{ dify_api_server }}" readonly>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-4">
+                                        <div class="mb-3">
+                                            <label for="testConnectionBtn" class="form-label d-block">测试连接</label>
+                                            <button type="button" class="btn btn-outline-primary w-100" id="testConnectionBtn">
+                                                <i class="fas fa-plug me-2"></i>测试
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-8">
+                                        <div class="mb-3">
+                                            <label for="difyKnowledgeBase" class="form-label">选择知识库</label>
+                                            <select class="form-select" id="difyKnowledgeBase" name="dataset_id" required>
+                                                <option value="" selected disabled>请先测试连接</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                            <button type="button" id="startBatchDifyBtn" class="btn w-100 mt-auto" disabled>
+                                <i class="fas fa-cloud-upload-alt me-2"></i>批量推送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 任务与文档管理 -->
+        <div class="tasks-documents-container">
+            <ul class="nav nav-tabs" id="taskDocTabs" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents">
+                        <i class="fas fa-file-alt me-1"></i>文档列表
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="chunk-tasks-tab" data-bs-toggle="tab" data-bs-target="#chunkTasks">
+                        <i class="fas fa-cut me-1"></i>切块任务
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="dify-tasks-tab" data-bs-toggle="tab" data-bs-target="#difyTasks">
+                        <i class="fas fa-cloud-upload-alt me-1"></i>推送任务
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="taskDocTabContent">
+                <!-- 文档列表 -->
+                <div class="tab-pane fade show active" id="documents" role="tabpanel">
+                    <div class="documents-container p-3">
+                        {% if documents %}
+                            <div class="select-all-container">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="selectAllDocs">
+                                    <label class="form-check-label" for="selectAllDocs">全选</label>
+                                </div>
+                            </div>
+                            
+                            <div class="documents-list">
+                                {% for document in documents %}
+                                <div class="document-item row align-items-center">
+                                    <div class="col-auto">
+                                        <div class="form-check">
+                                            <input class="form-check-input document-checkbox" type="checkbox" 
+                                                   value="{{ document.id }}" id="doc-{{ document.id }}"
+                                                   {% if document.status == '处理中' %}disabled{% endif %}>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-8">
+                                        <div class="document-name">{{ document.filename }}</div>
+                                        <div class="document-meta">
+                                            上传时间: {{ document.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                                            <span class="mx-2">|</span>
+                                            大小: {{ '%0.2f'|format(document.filesize/1024) }} KB
+                                            <span class="mx-2">|</span>
+                                            <span class="document-status {% if document.status == '已切块' %}status-chunked{% elif document.status == '处理中' %}status-processing{% else %}status-pending{% endif %}">
+                                                {{ document.status }}
+                                            </span>
+                                            {% if document.status == '已切块' %}
+                                            <span class="mx-2">|</span>
+                                            <span class="document-status {% if document.dify_push_status == 'pushed' %}status-chunked{% elif document.dify_push_status == 'pushing' %}status-processing{% else %}status-pending{% endif %}">
+                                                {% if document.dify_push_status == 'pushed' %}已推送{% elif document.dify_push_status == 'pushing' %}推送中{% else %}未推送{% endif %}
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-end">
+                                        <a href="/chunklab/documents/{{ document.id }}/chunk" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-search me-1"></i>查看
+                                        </a>
+                                        <button type="button" class="btn btn-danger btn-sm ms-2 delete-doc-btn"
+                                                data-doc-id="{{ document.id }}" data-doc-name="{{ document.filename }}"
+                                                {% if document.status == '处理中' %}disabled{% endif %}>
+                                            <i class="fas fa-trash-alt me-1"></i>删除
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                该文件夹暂无文档。请上传文件进行批量处理。
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 切块任务 -->
+                <div class="tab-pane fade" id="chunkTasks" role="tabpanel">
+                    <div class="tasks-container p-3">
+                        {% if chunk_tasks %}
+                            <div class="tasks-list">
+                                {% for task in chunk_tasks %}
+                                <div class="task-item" data-task-id="{{ task.task_id }}">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="task-name">{{ task.name }}</div>
+                                        <span class="badge {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% elif task.status == 'processing' %}bg-info{% else %}bg-secondary{% endif %}">
+                                            {% if task.status == 'completed' %}已完成{% elif task.status == 'failed' %}失败{% elif task.status == 'processing' %}处理中{% else %}等待中{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="task-progress">
+                                        <div class="progress">
+                                            <div class="progress-bar {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}"
+                                                 role="progressbar" 
+                                                 style="width: {{ task.progress }}%" 
+                                                 aria-valuenow="{{ task.progress }}">
+                                                {{ task.progress }}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between small mt-2">
+                                        <div>总数: {{ task.total_count }} | 成功: {{ task.success_count }} | 失败: {{ task.error_count }}</div>
+                                        <div class="text-muted">
+                                            创建: {{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                            {% if task.completed_at %} | 完成: {{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>暂无切块任务记录。
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Dify推送任务 -->
+                <div class="tab-pane fade" id="difyTasks" role="tabpanel">
+                    <div class="tasks-container p-3">
+                        {% if dify_tasks %}
+                            <div class="tasks-list">
+                                {% for task in dify_tasks %}
+                                <div class="task-item" data-task-id="{{ task.task_id }}">
+                                    <div class="d-flex justify-content-between">
+                                        <div class="task-name">{{ task.name }}</div>
+                                        <span class="badge {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% elif task.status == 'processing' %}bg-info{% else %}bg-secondary{% endif %}">
+                                            {% if task.status == 'completed' %}已完成{% elif task.status == 'failed' %}失败{% elif task.status == 'processing' %}处理中{% else %}等待中{% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="small mb-2">知识库: {{ task.dataset_name }}</div>
+                                    <div class="task-progress">
+                                        <div class="progress">
+                                            <div class="progress-bar {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}"
+                                                 role="progressbar" 
+                                                 style="width: {{ task.progress }}%" 
+                                                 aria-valuenow="{{ task.progress }}">
+                                                {{ task.progress }}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between small mt-2">
+                                        <div>总数: {{ task.total_count }} | 成功: {{ task.success_count }} | 失败: {{ task.error_count }}</div>
+                                        <div class="text-muted">
+                                            创建: {{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                            {% if task.completed_at %} | 完成: {{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>暂无推送任务记录。
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/chunkgo_batchdocs.js"></script>
+{% endblock %}

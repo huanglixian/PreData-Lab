@@ -6,14 +6,13 @@ ChunkSpace应用路由模块
 """
 
 from fastapi import APIRouter
+from . import base, chunklab, chunkfunc, chunkgo
 
-# 导入各模块路由
-from .base import router as base_router
-from .chunklab import router as chunklab_router
+# 创建主路由
+api_router = APIRouter()
 
-# 创建主路由（可选，如果需要统一注册的话）
-main_router = APIRouter()
-
-# 注册模块路由
-main_router.include_router(base_router)
-main_router.include_router(chunklab_router, prefix="/chunklab", tags=["chunklab"]) 
+# 注册各模块路由
+api_router.include_router(base.router, prefix="", tags=["base"])
+api_router.include_router(chunklab.router, prefix="/chunklab", tags=["chunklab"])
+api_router.include_router(chunkfunc.router, prefix="/chunkfunc", tags=["chunkfunc"])
+api_router.include_router(chunkgo.router, prefix="/chunkgo", tags=["chunkgo"]) 

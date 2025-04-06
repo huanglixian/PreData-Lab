@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}批量处理 - 文件夹管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+    }
+    
+    .folder-container {
+        background-color: var(--card-bg);
+        border-radius: 6px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .folder-form {
+        background-color: var(--card-bg);
+        border-radius: 6px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .folder-item {
+        border: 1px solid rgba(0,0,0,0.05);
+        border-radius: 6px;
+        padding: 1.2rem;
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        background-color: #ffffff;
+    }
+    
+    .folder-item:hover {
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        transform: translateY(-2px);
+    }
+    
+    .folder-icon {
+        color: var(--primary-color);
+        font-size: 2rem;
+        margin-right: 1rem;
+    }
+    
+    .folder-name {
+        font-weight: bold;
+        font-size: 1.1rem;
+        color: var(--primary-color);
+        margin-bottom: 0.25rem;
+    }
+    
+    .folder-meta {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+    
+    .folder-actions {
+        margin-left: auto;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem 1rem;
+    }
+    
+    .empty-icon {
+        font-size: 3rem;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+        .folder-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .folder-actions {
+            margin-left: 0;
+            margin-top: 1rem;
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="page-header d-flex justify-content-between align-items-center">
+            <h3>批量处理 - 文件夹管理</h3>
+            <div class="d-flex align-items-center">
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>返回首页
+                </a>
+            </div>
+        </div>
+        
+        <!-- 新建文件夹表单 -->
+        <div class="folder-form">
+            <h4 class="mb-3">新建文件夹</h4>
+            <form id="folderForm" class="row g-3">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" id="folderName" placeholder="输入文件夹名称" required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-folder-plus me-2"></i>创建文件夹
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- 文件夹列表 -->
+        <div class="folder-container">
+            <h4 class="mb-4">文件夹列表</h4>
+            
+            {% if folders %}
+                <div class="folders-list">
+                    {% for folder in folders %}
+                    <div class="folder-item" data-folder-id="{{ folder.id }}">
+                        <div class="folder-icon">
+                            <i class="fas fa-folder"></i>
+                        </div>
+                        <div class="folder-info">
+                            <div class="folder-name">{{ folder.name }}</div>
+                            <div class="folder-meta">
+                                文档数量: {{ folder.document_count }}
+                                <span class="mx-2">|</span>
+                                创建时间: {{ folder.create_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% if folder.document_count > 0 %}
+                                <span class="mx-2">|</span>
+                                最近更新: {{ folder.latest_update.strftime('%Y-%m-%d %H:%M:%S') }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="folder-actions">
+                            <a href="/chunkgo/folders/{{ folder.id }}" class="btn btn-primary btn-sm">
+                                <i class="fas fa-folder-open me-1"></i>打开文件夹
+                            </a>
+                            <button type="button" class="btn btn-danger btn-sm ms-2 delete-folder-btn"
+                                    data-folder-id="{{ folder.id }}" data-folder-name="{{ folder.name }}"
+                                    {% if folder.document_count > 0 %}disabled{% endif %}>
+                                <i class="fas fa-trash-alt me-1"></i>删除
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <h5 class="mb-3">暂无文件夹</h5>
+                    <p class="text-muted">创建一个新文件夹开始批量处理工作</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const folderForm = document.getElementById('folderForm');
+    
+    // 创建文件夹
+    folderForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const folderName = document.getElementById('folderName').value.trim();
+        if (!folderName) {
+            showToast('warning', '请输入文件夹名称');
+            return;
+        }
+        
+        // 发送创建请求
+        fetch('/chunkgo/folders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: folderName })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('success', data.message);
+                // 刷新页面
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast('error', data.detail || '创建文件夹失败');
+            }
+        })
+        .catch(error => {
+            showToast('error', '创建文件夹失败: ' + error.message);
+        });
+    });
+    
+    // 删除文件夹
+    document.querySelectorAll('.delete-folder-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const folderId = this.getAttribute('data-folder-id');
+            const folderName = this.getAttribute('data-folder-name');
+            
+            Swal.fire({
+                title: '确认删除',
+                text: `确定要删除文件夹 "${folderName}" 吗？此操作不可恢复！`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#732626',
+                cancelButtonColor: '#34495e',
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/chunkgo/folders/${folderId}`, {
+                        method: 'DELETE'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            showToast('success', data.message);
+                            // 移除文件夹元素
+                            const folderItem = document.querySelector(`.folder-item[data-folder-id="${folderId}"]`);
+                            if (folderItem) {
+                                folderItem.remove();
+                            }
+                            
+                            // 如果没有文件夹了，刷新页面显示空状态
+                            if (document.querySelectorAll('.folder-item').length === 0) {
+                                setTimeout(() => window.location.reload(), 1000);
+                            }
+                        } else {
+                            showToast('error', data.detail || '删除文件夹失败');
+                        }
+                    })
+                    .catch(error => {
+                        showToast('error', '删除文件夹失败: ' + error.message);
+                    });
+                }
+            });
+        });
+    });
+    
+    // 文件夹项点击
+    document.querySelectorAll('.folder-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            // 如果点击的不是按钮，则导航到文件夹
+            if (!e.target.closest('button')) {
+                const folderId = this.getAttribute('data-folder-id');
+                window.location.href = `/chunkgo/folders/${folderId}`;
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

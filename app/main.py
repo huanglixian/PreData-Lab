@@ -9,9 +9,10 @@ from fastapi.staticfiles import StaticFiles
 # 本地模块导入
 from . import templates
 from .database import Base, engine
-from .routers import base
-from .routers import chunklab
-from .routers import chunkfunc
+from .routers.base import router as base_router
+from .routers.chunklab import router as chunklab_router
+from .routers.chunkfunc import router as chunkfunc_router
+from .routers.chunkgo import router as chunkgo_router
 from .config import APP_CONFIG
 
 # 创建FastAPI应用
@@ -34,9 +35,10 @@ app.mount("/guide", StaticFiles(directory="guide"), name="guide_files")
 Base.metadata.create_all(bind=engine)
 
 # 注册路由
-app.include_router(base.router)
-app.include_router(chunklab.router, prefix="/chunklab", tags=["chunklab"])
-app.include_router(chunkfunc.router, prefix="/chunkfunc", tags=["chunkfunc"])
+app.include_router(base_router)
+app.include_router(chunklab_router, prefix="/chunklab", tags=["chunklab"])
+app.include_router(chunkfunc_router, prefix="/chunkfunc", tags=["chunkfunc"])
+app.include_router(chunkgo_router, prefix="/chunkgo", tags=["chunkgo"])
 
 if __name__ == "__main__":
     import uvicorn
