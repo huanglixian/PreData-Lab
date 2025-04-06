@@ -44,31 +44,63 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const singleToDifyModal = document.getElementById('singleToDifyModal');
+  // DOM元素缓存
+  const modal = document.getElementById('singleToDifyModal');
   const testBtn = document.getElementById('testConnectionBtn');
   const pushBtn = document.getElementById('singlePushToDifyBtn');
   const errorDiv = document.getElementById('singlePushError');
-  const knowledgeBaseSelect = document.getElementById('difyKnowledgeBase');
+  const kbSelect = document.getElementById('difyKnowledgeBase');
   
-  // 弹窗事件
-  singleToDifyModal.addEventListener('show.bs.modal', function(event) {
-    // 获取文档ID并设置
-    const documentId = event.relatedTarget.getAttribute('data-document-id');
-    document.getElementById('singleDifyDocumentId').value = documentId;
+  // 显示错误信息
+  const showError = msg => {
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+  };
+  
+  // Toast通知函数
+  const toast = (type, msg) => {
+    try {
+      window.showToast(type, msg);
+    } catch (e) {
+      console.log(`通知(${type}): ${msg}`);
+    }
+  };
+  
+  // 更新文档状态
+  const updateDocStatus = (id, status) => {
+    const selector = `[data-bs-target="#singleToDifyModal"][data-document-id="${id}"]`;
+    const statusEl = document.querySelector(selector)?.closest('.document-item')?.querySelector('.dify-push-status');
+    
+    if (!statusEl) return;
+    
+    statusEl.classList.remove('status-chunked', 'status-processing', 'status-pending');
+    
+    if (status === 'pushing') {
+      statusEl.classList.add('status-processing');
+      statusEl.textContent = '推送中';
+    } else if (status === 'pushed') {
+      statusEl.classList.add('status-chunked');
+      statusEl.textContent = '已推送';
+    } else {
+      statusEl.classList.add('status-pending');
+      statusEl.textContent = '未推送';
+    }
+  };
+  
+  // 弹窗显示事件
+  modal.addEventListener('show.bs.modal', function(event) {
+    // 获取文档ID
+    const docId = event.relatedTarget.getAttribute('data-document-id');
+    document.getElementById('singleDifyDocumentId').value = docId;
     
     // 重置UI状态
     errorDiv.style.display = 'none';
-    resetConnectionBtn();
-    knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>请先测试连接</option>';
-  });
-  
-  // 重置连接按钮状态
-  function resetConnectionBtn() {
     testBtn.innerHTML = '<i class="fas fa-plug me-2"></i>测试连接';
     testBtn.classList.remove('btn-success', 'btn-danger');
     testBtn.classList.add('btn-outline-primary');
     testBtn.disabled = false;
-  }
+    kbSelect.innerHTML = '<option value="" selected disabled>请先测试连接</option>';
+  });
   
   // 测试连接
   testBtn.addEventListener('click', function() {
@@ -77,148 +109,103 @@ document.addEventListener('DOMContentLoaded', function() {
     errorDiv.style.display = 'none';
     
     fetch('/chunklab/dify/test-connection')
-      .then(response => response.json())
+      .then(res => res.json())
       .then(data => {
         if (data.status === 'success') {
           testBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>连接成功';
-          testBtn.classList.remove('btn-outline-primary');
-          testBtn.classList.add('btn-success');
-          loadKnowledgeBases();
+          testBtn.classList.replace('btn-outline-primary', 'btn-success');
+          
+          // 加载知识库
+          kbSelect.innerHTML = '<option value="" selected disabled>加载中...</option>';
+          return fetch('/chunklab/dify/knowledge-bases').then(res => res.json());
         } else {
           showError(data.message || '连接失败');
           testBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>连接失败';
-          testBtn.classList.remove('btn-outline-primary');
-          testBtn.classList.add('btn-danger');
+          testBtn.classList.replace('btn-outline-primary', 'btn-danger');
+          return Promise.reject();
         }
       })
-      .catch(error => {
-        showError('连接失败: ' + error.message);
-        testBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>连接失败';
-        testBtn.classList.remove('btn-outline-primary');
-        testBtn.classList.add('btn-danger');
-      })
-      .finally(() => {
-        setTimeout(() => testBtn.disabled = false, 1000);
-      });
-  });
-  
-  // 加载知识库
-  function loadKnowledgeBases() {
-    knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>加载中...</option>';
-    
-    fetch('/chunklab/dify/knowledge-bases')
-      .then(response => response.json())
       .then(data => {
-        knowledgeBaseSelect.innerHTML = '';
-        
-        if (data.status === 'success') {
-          // 添加默认选项
-          const defaultOption = document.createElement('option');
-          defaultOption.value = '';
-          defaultOption.disabled = true;
-          defaultOption.selected = true;
-          defaultOption.textContent = '请选择知识库';
-          knowledgeBaseSelect.appendChild(defaultOption);
+        if (data && data.status === 'success') {
+          kbSelect.innerHTML = '<option value="" selected disabled>请选择知识库</option>';
           
-          // 添加知识库选项
-          (data.data.data || []).forEach(dataset => {
+          (data.data.data || []).forEach(kb => {
             const option = document.createElement('option');
-            option.value = dataset.id;
-            option.textContent = dataset.name;
-            knowledgeBaseSelect.appendChild(option);
+            option.value = kb.id;
+            option.textContent = kb.name;
+            kbSelect.appendChild(option);
           });
         } else {
-          showError('获取知识库列表失败: ' + (data.message || '未知错误'));
-          knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>加载失败</option>';
+          showError('获取知识库列表失败');
+          kbSelect.innerHTML = '<option value="" selected disabled>加载失败</option>';
         }
       })
-      .catch(error => {
-        showError('获取知识库列表失败: ' + error.message);
-        knowledgeBaseSelect.innerHTML = '<option value="" selected disabled>加载失败</option>';
-      });
-  }
-  
-  // 显示错误信息
-  function showError(message) {
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
-  }
-  
-  // 更新推送状态（简化版）
-  function updatePushStatus(docId, status) {
-    const docSelector = `[data-bs-target="#singleToDifyModal"][data-document-id="${docId}"]`;
-    const statusEl = document.querySelector(docSelector)?.closest('.document-item')?.querySelector('.dify-push-status');
-    
-    if (statusEl) {
-      statusEl.classList.remove('status-chunked', 'status-processing', 'status-pending');
-      statusEl.classList.add(status === 'pushing' ? 'status-processing' : 
-                         status === 'pushed' ? 'status-chunked' : 'status-pending');
-      statusEl.textContent = status === 'pushing' ? '推送中' : 
-                         status === 'pushed' ? '已推送' : '未推送';
-    }
-  }
+      .catch(() => {})
+      .finally(() => setTimeout(() => testBtn.disabled = false, 1000));
+  });
   
   // 推送到Dify
   pushBtn.addEventListener('click', function() {
-    const documentId = document.getElementById('singleDifyDocumentId').value;
+    const docId = document.getElementById('singleDifyDocumentId').value;
     
-    // 检查是否选择了知识库
-    if (!knowledgeBaseSelect.value) {
+    // 检查知识库选择
+    if (!kbSelect.value) {
       showError('请选择知识库');
       return;
     }
     
     // 更新状态为推送中
-    updatePushStatus(documentId, 'pushing');
+    updateDocStatus(docId, 'pushing');
     
-    // 禁用按钮并显示加载状态
+    // 禁用按钮
     pushBtn.disabled = true;
     pushBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>推送中...';
     errorDiv.style.display = 'none';
     
-    // 创建FormData并发送请求
+    // 提交请求
     const formData = new FormData();
-    formData.append('dataset_id', knowledgeBaseSelect.value);
+    formData.append('dataset_id', kbSelect.value);
     
-    fetch(`/chunklab/dify/push/${documentId}`, {
+    fetch(`/chunklab/dify/push/${docId}`, {
       method: 'POST',
       body: formData
     })
-    .then(response => response.json())
+    .then(res => res.json())
     .then(data => {
+      // 恢复按钮状态
       pushBtn.disabled = false;
       pushBtn.innerHTML = '<i class="fas fa-cloud-upload-alt me-2"></i>推送';
       
       if (data.status === 'processing') {
-        // 关闭弹窗并显示全局提示
-        bootstrap.Modal.getInstance(singleToDifyModal).hide();
+        // 关闭弹窗和清理背景
+        const modalInstance = bootstrap.Modal.getInstance(modal);
+        modalInstance.hide();
         
-        // 简单清理可能残留的背景遮罩
         setTimeout(() => {
+          // 清理模态框背景
           document.body.classList.remove('modal-open');
-          const backdrop = document.querySelector('.modal-backdrop');
-          if (backdrop) backdrop.remove();
+          document.querySelector('.modal-backdrop')?.remove();
           
-          // 使用与base.html兼容的方式显示通知
-          try {
-            window.showToast('info', '文档推送已开始，后台处理中...');
-          } catch(e) {}
+          // 显示开始通知
+          toast('info', '文档推送已开始，后台处理中...');
+          
+          // 检查推送状态，设置轮询间隔
+          let statusCheckInterval = setInterval(() => {
+            fetch(`/chunklab/dify/status/${docId}`)
+              .then(res => res.json())
+              .then(statusData => {
+                if (statusData.status === 'pushed') {
+                  clearInterval(statusCheckInterval);
+                  toast('success', '文档推送成功');
+                  updateDocStatus(docId, 'pushed');
+                }
+              })
+              .catch(() => {});
+          }, 3000);
+          
+          // 60秒后清除轮询（如果还没完成）
+          setTimeout(() => clearInterval(statusCheckInterval), 60000);
         }, 300);
-        
-        // 简单轮询检查推送状态
-        setTimeout(() => {
-          fetch(`/chunklab/dify/status/${documentId}`)
-            .then(response => response.json())
-            .then(statusData => {
-              if (statusData.status === 'pushed') {
-                try {
-                  window.showToast('success', '文档推送成功');
-                } catch(e) {}
-                updatePushStatus(documentId, 'pushed');
-              }
-            })
-            .catch(() => {});
-        }, 5000);
       } else {
         showError(data.message || '推送失败');
       }
