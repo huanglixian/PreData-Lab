@@ -34,22 +34,22 @@ class DifyBatchService:
         if not folder:
             raise HTTPException(status_code=404, detail="文件夹不存在")
         
-        # 如果没有指定文档ID，则获取文件夹中所有已切块的文档
+        # 如果没有指定文档ID，则获取文件夹中所有已切片的文档
         if not document_ids:
             documents = db.query(Document).filter(
                 Document.folder_id == folder_id,
-                Document.status == "已切块",
+                Document.status == "已切片",
                 Document.dify_push_status != "pushing"  # 排除正在推送的文档
             ).all()
             document_ids = [doc.id for doc in documents]
         else:
-            # 验证这些文档是否存在且已切块
+            # 验证这些文档是否存在且已切片
             for doc_id in document_ids:
                 document = db.query(Document).filter(Document.id == doc_id).first()
                 if not document:
                     raise HTTPException(status_code=404, detail=f"文档 ID {doc_id} 不存在")
-                if document.status != "已切块":
-                    raise HTTPException(status_code=400, detail=f"文档 '{document.filename}' 尚未切块")
+                if document.status != "已切片":
+                    raise HTTPException(status_code=400, detail=f"文档 '{document.filename}' 尚未切片")
                 if document.dify_push_status == "pushing":
                     raise HTTPException(status_code=400, detail=f"文档 '{document.filename}' 正在被其他任务推送")
         
@@ -145,9 +145,9 @@ class DifyBatchService:
                     error_count += 1
                     continue
                 
-                # 如果文档未切块，则跳过
-                if document.status != "已切块":
-                    results[str(doc_id)] = {"status": "skipped", "error": "文档尚未切块", "time": datetime.now().isoformat()}
+                # 如果文档未切片，则跳过
+                if document.status != "已切片":
+                    results[str(doc_id)] = {"status": "skipped", "error": "文档尚未切片", "time": datetime.now().isoformat()}
                     error_count += 1
                     continue
                 
@@ -160,12 +160,12 @@ class DifyBatchService:
                 document.dify_push_status = "pushing"
                 db.commit()
                 
-                # 获取文档的切块
+                # 获取文档的切片
                 chunks = db.query(Chunk).filter(Chunk.document_id == doc_id).order_by(Chunk.sequence).all()
                 if not chunks:
                     document.dify_push_status = None  # 恢复状态
                     db.commit()
-                    results[str(doc_id)] = {"status": "failed", "error": "文档没有切块", "time": datetime.now().isoformat()}
+                    results[str(doc_id)] = {"status": "failed", "error": "文档没有切片", "time": datetime.now().isoformat()}
                     error_count += 1
                     continue
                 
@@ -354,12 +354,12 @@ class DifyBatchService:
                 if delete_result.get('status') != 'success':
                     logger.warning(f"删除段落失败: {delete_result.get('message', '未知错误')}")
             
-            # 步骤4: 添加自定义切块
+            # 步骤4: 添加自定义切片
             chunk_count = len(chunks)
             if chunk_count > 100:
-                logger.info(f"开始添加大量切块 ({chunk_count} 个)，这可能需要较长时间...")
+                logger.info(f"开始添加大量切片 ({chunk_count} 个)，这可能需要较长时间...")
             else:
-                logger.info(f"正在添加 {chunk_count} 个切块...")
+                logger.info(f"正在添加 {chunk_count} 个切片...")
                 
             add_response = self._add_segments_to_document(chunks, dataset_id, dify_document_id)
             if add_response.get('status') != 'success':

@@ -3,153 +3,7 @@
 {% block title %}批量处理 - {{ folder.name }}{% endblock %}
 
 {% block extra_css %}
-<style>
-    /* 基础容器样式 */
-    .card, .upload-container, .documents-container, .tasks-container {
-        background-color: var(--card-bg);
-        border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 1.2rem;
-    }
-    
-    /* 布局与区块样式 */
-    .page-header { margin-bottom: 1.5rem; }
-    .upload-container { padding: 0.6rem; }
-    .tasks-documents-container { margin-top: 1rem; }
-    
-    .drop-zone {
-        border: 2px dashed var(--border-color);
-        border-radius: 6px;
-        padding: 0.8rem 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-    
-    .drop-zone-active {
-        border-color: var(--accent);
-        background-color: rgba(52, 152, 219, 0.05);
-    }
-    
-    .drop-zone-icon {
-        font-size: 2rem;
-        color: var(--accent);
-        margin-bottom: 0.8rem;
-    }
-    
-    /* 设置区域与卡片样式 */
-    .settings-container .card {
-        flex-grow: 1;
-        border: 1px solid rgba(0,0,0,0.1);
-        background-color: #fafafa;
-    }
-    
-    .settings-container .card-body {
-        padding: 0.75rem 1.25rem;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .settings-container .card-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #2b5876;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 1px solid rgba(0,0,0,0.1);
-    }
-    
-    .settings-container .row > .col-md-6 { display: flex; }
-    .settings-container .card-body form { flex-grow: 1; }
-    .settings-container .card-body .mb-3 { margin-bottom: 0.5rem !important; }
-    .settings-container .card-body .btn.mt-auto { margin-top: 0.5rem; }
-    
-    /* 按钮样式 */
-    #startBatchChunkBtn, #startBatchDifyBtn {
-        background-color: #2b5876;
-        border-color: #2b5876;
-        color: #ffffff;
-        transition: background-color 0.15s ease-in-out;
-    }
-    
-    #startBatchChunkBtn:hover, #startBatchDifyBtn:not(:disabled):hover {
-        background-color: #1e3c50;
-        border-color: #1e3c50;
-    }
-    
-    #startBatchDifyBtn:disabled { opacity: 0.65; }
-    
-    /* 文档和任务样式 */
-    .document-item {
-        border-bottom: 1px solid rgba(0,0,0,0.05);
-        padding: 1rem 0;
-    }
-    
-    .document-item:last-child { border-bottom: none; }
-    
-    .document-name {
-        font-weight: bold;
-        color: var(--text-color);
-    }
-    
-    .document-meta {
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        margin-top: 0.25rem;
-    }
-    
-    .document-status {
-        display: inline-block;
-        padding: 0.25rem 0.75rem;
-        border-radius: 50px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        background-color: var(--light-bg);
-    }
-    
-    /* 状态样式 */
-    .status-chunked { background-color: #d1ecf1; color: #0c5460; }
-    .status-processing { background-color: #fff3cd; color: #856404; }
-    .status-pending { background-color: #e2e3e5; color: #383d41; }
-    .status-pushed { background-color: #d4edda; color: #155724; }
-    
-    /* 进度和上传状态 */
-    .progress-container {
-        margin-top: 20px;
-        display: none;
-    }
-    
-    .upload-status {
-        margin-top: 5px;
-        font-size: 14px;
-        color: var(--text-muted);
-    }
-    
-    .task-item {
-        border: 1px solid rgba(0,0,0,0.05);
-        border-radius: 6px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-        background-color: #ffffff;
-    }
-    
-    .task-name { 
-        font-weight: bold;
-        margin-bottom: 0.5rem;
-    }
-    
-    .task-progress { margin: 0.5rem 0; }
-    
-    /* 选项卡样式 */
-    .nav-tabs .nav-link { color: var(--text-muted); }
-    .nav-tabs .nav-link.active { 
-        color: var(--primary-color);
-        font-weight: bold;
-    }
-    
-    .tab-content { padding-top: 1.5rem; }
-    .select-all-container { margin-bottom: 1rem; }
-</style>
+<link rel="stylesheet" href="/static/css/chunkgo_batchdocs.css">
 {% endblock %}
 
 {% block content %}
@@ -169,7 +23,7 @@
                     <div class="drop-zone-icon">
                         <i class="fas fa-cloud-upload-alt"></i>
                     </div>
-                    <div class="fs-5 mb-1">上传文件：拖拽文件到此处，或点击选择文件/文件夹</div>
+                    <div class="fs-5 mb-1">拖拽文件到此处or点击下方按钮上传</div>
                     <div class="text-muted small mb-2">支持格式: {{ allowed_extensions }}</div>
                     <div class="d-flex justify-content-center gap-3">
                         <button type="button" id="browseButton" class="btn btn-primary">
@@ -204,9 +58,9 @@
                             <h6 class="card-title">批量切块参数</h6>
                             <form id="batchChunkForm" class="flex-grow-1">
                                 <div class="mb-3">
-                                    <label for="chunkStrategy" class="form-label">切块策略</label>
+                                    <label for="chunkStrategy" class="form-label">切块函数</label>
                                     <select class="form-select" id="chunkStrategy" name="chunk_strategy" required>
-                                        <option value="" selected disabled>选择切块策略</option>
+                                        <option value="" selected disabled>选择切块函数</option>
                                         {% for strategy in chunk_strategies %}
                                         <option value="{{ strategy.name }}">{{ strategy.display_name }}</option>
                                         {% endfor %}
@@ -269,7 +123,7 @@
                                 </div>
                             </form>
                             <button type="button" id="startBatchDifyBtn" class="btn w-100 mt-auto" disabled>
-                                <i class="fas fa-cloud-upload-alt me-2"></i>批量推送
+                                <i class="fas fa-cloud-upload-alt me-2"></i>批量ToDify
                             </button>
                         </div>
                     </div>
@@ -292,7 +146,7 @@
                 </li>
                 <li class="nav-item">
                     <button class="nav-link" id="dify-tasks-tab" data-bs-toggle="tab" data-bs-target="#difyTasks">
-                        <i class="fas fa-cloud-upload-alt me-1"></i>推送任务
+                        <i class="fas fa-cloud-upload-alt me-1"></i>ToDify任务
                     </button>
                 </li>
             </ul>
@@ -368,15 +222,15 @@
                                 <div class="task-item" data-task-id="{{ task.task_id }}">
                                     <div class="d-flex justify-content-between">
                                         <div class="task-name">{{ task.name }}</div>
-                                        <span class="badge {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% elif task.status == 'processing' %}bg-info{% else %}bg-secondary{% endif %}">
+                                        <span class="badge text-white d-flex align-items-center justify-content-center" style="background-color: {% if task.error_count > 0 %}{% if task.success_count == 0 %}#732626{% else %}#7d5c28{% endif %}{% else %}#2a5e4b{% endif %}">
                                             {% if task.status == 'completed' %}已完成{% elif task.status == 'failed' %}失败{% elif task.status == 'processing' %}处理中{% else %}等待中{% endif %}
                                         </span>
                                     </div>
                                     <div class="task-progress">
                                         <div class="progress">
-                                            <div class="progress-bar {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}"
+                                            <div class="progress-bar" 
                                                  role="progressbar" 
-                                                 style="width: {{ task.progress }}%" 
+                                                 style="width: {{ task.progress }}%; background-color: {% if task.error_count > 0 %}{% if task.success_count == 0 %}#732626{% else %}#7d5c28{% endif %}{% else %}#2a5e4b{% endif %}" 
                                                  aria-valuenow="{{ task.progress }}">
                                                 {{ task.progress }}%
                                             </div>
@@ -409,16 +263,16 @@
                                 <div class="task-item" data-task-id="{{ task.task_id }}">
                                     <div class="d-flex justify-content-between">
                                         <div class="task-name">{{ task.name }}</div>
-                                        <span class="badge {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% elif task.status == 'processing' %}bg-info{% else %}bg-secondary{% endif %}">
+                                        <span class="badge text-white d-flex align-items-center justify-content-center" style="background-color: {% if task.error_count > 0 %}{% if task.success_count == 0 %}#732626{% else %}#7d5c28{% endif %}{% else %}#2a5e4b{% endif %}">
                                             {% if task.status == 'completed' %}已完成{% elif task.status == 'failed' %}失败{% elif task.status == 'processing' %}处理中{% else %}等待中{% endif %}
                                         </span>
                                     </div>
                                     <div class="small mb-2">知识库: {{ task.dataset_name }}</div>
                                     <div class="task-progress">
                                         <div class="progress">
-                                            <div class="progress-bar {% if task.status == 'completed' %}bg-success{% elif task.status == 'failed' %}bg-danger{% else %}bg-info{% endif %}"
+                                            <div class="progress-bar" 
                                                  role="progressbar" 
-                                                 style="width: {{ task.progress }}%" 
+                                                 style="width: {{ task.progress }}%; background-color: {% if task.error_count > 0 %}{% if task.success_count == 0 %}#732626{% else %}#7d5c28{% endif %}{% else %}#2a5e4b{% endif %}" 
                                                  aria-valuenow="{{ task.progress }}">
                                                 {{ task.progress }}%
                                             </div>
@@ -448,5 +302,15 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/chunkgo_batchdocs.js"></script>
+<!-- 公共功能模块：提供文档全选和任务状态轮询等功能 -->
+<script src="/static/js/chunkgo/chunkgo_common.js"></script>
+
+<!-- 上传模块：处理文件上传和文档删除功能 -->
+<script src="/static/js/chunkgo/chunkgo_upload.js"></script>
+
+<!-- 切块模块：负责文档批量切块相关功能 -->
+<script src="/static/js/chunkgo/chunkgo_chunking.js"></script>
+
+<!-- Dify集成模块：处理与Dify平台的连接、知识库同步等功能 -->
+<script src="/static/js/chunkgo/chunkgo_dify.js"></script>
 {% endblock %}

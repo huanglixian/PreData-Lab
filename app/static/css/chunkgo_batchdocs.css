@@ -1,0 +1,150 @@
+/* 
+ * chunkgo_batchdocs.css
+ * 批量处理页面样式
+ */
+
+/* 基础容器样式 */
+.card, .upload-container, .documents-container, .tasks-container {
+    background-color: var(--card-bg);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 1.2rem;
+}
+
+/* 布局与区块样式 */
+.page-header { margin-bottom: 1.5rem; }
+.upload-container { padding: 0.6rem; }
+.tasks-documents-container { margin-top: 1rem; }
+
+.drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.drop-zone-active {
+    border-color: var(--accent);
+    background-color: rgba(52, 152, 219, 0.05);
+}
+
+.drop-zone-icon {
+    font-size: 2rem;
+    color: var(--accent);
+    margin-bottom: 0.8rem;
+}
+
+/* 设置区域与卡片样式 */
+.settings-container .card {
+    flex-grow: 1;
+    border: 1px solid rgba(0,0,0,0.1);
+    background-color: #fafafa;
+}
+
+.settings-container .card-body {
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-container .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2b5876;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.settings-container .row > .col-md-6 { display: flex; }
+.settings-container .card-body form { flex-grow: 1; }
+.settings-container .card-body .mb-3 { margin-bottom: 0.5rem !important; }
+.settings-container .card-body .btn.mt-auto { margin-top: 0.5rem; }
+
+/* 按钮样式 */
+#startBatchChunkBtn, #startBatchDifyBtn {
+    background-color: #2b5876;
+    border-color: #2b5876;
+    color: #ffffff;
+    transition: background-color 0.15s ease-in-out;
+}
+
+#startBatchChunkBtn:hover, #startBatchDifyBtn:not(:disabled):hover {
+    background-color: #1e3c50;
+    border-color: #1e3c50;
+}
+
+#startBatchDifyBtn:disabled { opacity: 0.65; }
+
+/* 文档和任务样式 */
+.document-item {
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 1rem 0;
+}
+
+.document-item:last-child { border-bottom: none; }
+
+.document-name {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.document-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+}
+
+.document-status {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background-color: var(--light-bg);
+}
+
+/* 状态样式 */
+.status-chunked { background-color: #d1ecf1; color: #0c5460; }
+.status-processing { background-color: #fff3cd; color: #856404; }
+.status-pending { background-color: #e2e3e5; color: #383d41; }
+.status-pushed { background-color: #d4edda; color: #155724; }
+
+/* 进度和上传状态 */
+.progress-container {
+    margin-top: 20px;
+    display: none;
+}
+
+.upload-status {
+    margin-top: 5px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.task-item {
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: #ffffff;
+}
+
+.task-name { 
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.task-progress { margin: 0.5rem 0; }
+
+/* 选项卡样式 */
+.nav-tabs .nav-link { color: var(--text-muted); }
+.nav-tabs .nav-link.active { 
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.tab-content { padding-top: 1.5rem; }
+.select-all-container { margin-bottom: 1rem; } 
