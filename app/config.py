@@ -38,6 +38,7 @@ APP_CONFIG = {
     'MAX_CONTENT_LENGTH': 16 * 1024 * 1024,  # 16MB
     'DEFAULT_CHUNK_SIZE': 300,
     'DEFAULT_OVERLAP': 30,
+    'PASS_META_TO_DIFY': True,  # 是否将 meta 数据传递给 Dify
 }
 
 # 更新切块策略列表
@@ -59,4 +60,6 @@ def get_config(key=None):
         return DIFY_CONFIG['API_SERVER']
     elif key == 'DIFY_API_KEY':
         return DIFY_CONFIG['API_KEY']
+    elif key == 'PASS_META_TO_DIFY':
+        return APP_CONFIG['PASS_META_TO_DIFY']
     return APP_CONFIG.get(key, None) if key else APP_CONFIG 

@@ -52,7 +52,7 @@
 为了使您的切块策略能够被系统自动识别和加载，请遵循以下命名约定：
 
 1. 文件名必须以 `_strategy.py` 结尾，例如：`pdf_strategy.py`
-2. 文件必须放在 `app/chunklab/chunking/` 目录下
+2. 文件必须放在 `app/chunk_func/` 目录下
 3. 实现的类名应该与策略名称相对应，例如：`PdfChunkStrategy`
 
 ## 实现方法一：chunk_no_meta（简单）

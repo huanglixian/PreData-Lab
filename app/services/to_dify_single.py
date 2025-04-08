@@ -6,6 +6,8 @@ import os
 from typing import List, Dict, Any
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import random
 
 from ..config import get_config
 from ..database import Document, Chunk, get_db, get_db_session
@@ -20,18 +22,36 @@ class DifySingleService:
         """初始化服务"""
         self.api_server = get_config('DIFY_API_SERVER')
         self.api_key = get_config('DIFY_API_KEY')
+        self.headers = {'Authorization': f'Bearer {self.api_key}'}
         
-    def get_headers(self):
-        """获取API请求头"""
-        return {
-            'Authorization': f'Bearer {self.api_key}'
-        }
+    def _make_request(self, method: str, url: str, **kwargs) -> Dict[str, Any]:
+        """统一的请求处理方法"""
+        try:
+            response = requests.request(method, url, headers=self.headers, **kwargs)
+            response.raise_for_status()
+            return {'status': 'success', 'data': response.json()}
+        except Exception as e:
+            logger.error(f"请求失败: {str(e)}")
+            return {'status': 'error', 'message': str(e)}
+    
+    def _extract_segments(self, data: Any) -> List[Dict]:
+        """从响应数据中提取段落列表"""
+        segments = []
+        if isinstance(data, dict) and 'data' in data:
+            data = data['data']
+            if isinstance(data, dict) and 'data' in data:
+                segments = data['data']
+            elif isinstance(data, list):
+                segments = data
+        elif isinstance(data, list):
+            segments = data
+        return segments
     
     def get_knowledge_bases(self) -> Dict[str, Any]:
         """获取Dify知识库列表"""
         try:
             url = f"{self.api_server}/v1/datasets"
-            response = requests.get(url, headers=self.get_headers(), params={'page': 1, 'limit': 100})
+            response = requests.get(url, headers=self.headers, params={'page': 1, 'limit': 100})
             response.raise_for_status()
             return {'status': 'success', 'data': response.json()}
         except Exception as e:
@@ -41,31 +61,26 @@ class DifySingleService:
     def test_connection(self) -> Dict[str, Any]:
         """测试与Dify服务器的连接"""
         try:
+            # 尝试健康检查接口
             url = f"{self.api_server}/v1/health"
-            response = requests.get(url, headers=self.get_headers(), timeout=5)
+            response = requests.get(url, headers=self.headers, timeout=5)
             
-            # 如果健康检查接口返回成功
             if response.status_code < 300:
-                return {'status': 'success', 'message': '连接成功', 'details': {'api_server': self.api_server}}
+                return {'status': 'success', 'message': '连接成功'}
             
-            # 尝试请求几个常见的端点
-            alt_endpoints = ['/v1/datasets', '/datasets', '/v1', '/']
-            for endpoint in alt_endpoints:
-                try:
-                    test_url = f"{self.api_server}{endpoint}"
-                    test_response = requests.get(test_url, headers=self.get_headers(), timeout=5)
-                    if test_response.status_code < 300 or test_response.status_code == 401:
-                        return {'status': 'success', 'message': '连接成功', 'details': {'api_server': self.api_server}}
-                except:
-                    continue
+            # 尝试知识库接口
+            url = f"{self.api_server}/v1/datasets"
+            response = requests.get(url, headers=self.headers, timeout=5)
+            if response.status_code < 300 or response.status_code == 401:
+                return {'status': 'success', 'message': '连接成功'}
             
-            return {'status': 'error', 'message': f'服务器响应异常: {response.status_code}', 'details': {'api_server': self.api_server}}
+            return {'status': 'error', 'message': f'服务器响应异常: {response.status_code}'}
         except requests.exceptions.Timeout:
-            return {'status': 'error', 'message': '连接超时，请检查服务器地址和网络', 'details': {'api_server': self.api_server}}
+            return {'status': 'error', 'message': '连接超时'}
         except requests.exceptions.ConnectionError:
-            return {'status': 'error', 'message': '无法连接到服务器，请检查服务器地址', 'details': {'api_server': self.api_server}}
+            return {'status': 'error', 'message': '无法连接到服务器'}
         except Exception as e:
-            return {'status': 'error', 'message': f'连接测试失败: {str(e)}', 'details': {'api_server': self.api_server}}
+            return {'status': 'error', 'message': f'连接测试失败: {str(e)}'}
     
     def push_document_to_dify(self, document_id: int, dataset_id: str, db: Session) -> JSONResponse:
         """启动文档推送到Dify知识库的任务"""
@@ -242,7 +257,7 @@ class DifySingleService:
             
             response = requests.post(
                 url,
-                headers={'Authorization': f'Bearer {self.api_key}'},
+                headers=self.headers,
                 files=files,
                 data=data
             )
@@ -264,7 +279,7 @@ class DifySingleService:
         while time.time() - start_wait < max_wait_time:
             try:
                 url = f"{self.api_server}/v1/datasets/{dataset_id}/documents/{batch_id}/indexing-status"
-                response = requests.get(url, headers=self.get_headers())
+                response = requests.get(url, headers=self.headers)
                 
                 if response.status_code != 200:
                     time.sleep(5)
@@ -307,57 +322,81 @@ class DifySingleService:
         return True
     
     def _get_document_segments(self, dataset_id: str, document_id: str) -> Dict[str, Any]:
-        """获取文档的段落列表"""
+        """获取文档的所有段落列表"""
         try:
-            url = f"{self.api_server}/v1/datasets/{dataset_id}/documents/{document_id}/segments"
-            response = requests.get(url, headers=self.get_headers())
+            all_segments = []
+            page = 1
+            limit = 100
             
-            if response.status_code != 200:
-                return {'status': 'error', 'message': f"状态码: {response.status_code}"}
+            while True:
+                url = f"{self.api_server}/v1/datasets/{dataset_id}/documents/{document_id}/segments"
+                params = {'page': page, 'limit': limit}
+                result = self._make_request('GET', url, params=params)
+                
+                if result['status'] != 'success':
+                    return result
+                
+                segments = self._extract_segments(result['data'])
+                all_segments.extend(segments)
+                
+                if len(segments) < limit:
+                    break
+                    
+                page += 1
+                logger.info(f"已获取 {len(all_segments)} 个段落...")
             
-            return {'status': 'success', 'data': response.json()}
+            return {'status': 'success', 'data': all_segments}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
     
     def _delete_all_segments(self, dataset_id: str, document_id: str, segments_data: Dict[str, Any]) -> Dict[str, Any]:
         """删除文档的所有段落"""
         try:
-            # 获取段落列表
-            segments = []
-            
-            # 处理不同格式的响应
-            if isinstance(segments_data, dict) and 'data' in segments_data:
-                data = segments_data['data']
-                if isinstance(data, dict) and 'data' in data:
-                    segments = data['data']
-                elif isinstance(data, list):
-                    segments = data
-            elif isinstance(segments_data, list):
-                segments = segments_data
-            
+            segments = self._extract_segments(segments_data)
             if not segments:
                 return {'status': 'success'}
             
-            # 获取段落ID
-            segment_ids = []
-            for segment in segments:
-                if isinstance(segment, dict) and 'id' in segment:
-                    segment_ids.append(segment['id'])
-            
+            segment_ids = [s['id'] for s in segments if isinstance(s, dict) and 'id' in s]
             if not segment_ids:
                 return {'status': 'success'}
             
-            logger.info(f"删除 {len(segment_ids)} 个段落...")
+            total_segments = len(segment_ids)
+            logger.info(f"开始删除 {total_segments} 个段落...")
             
-            # 逐个删除段落
-            for segment_id in segment_ids:
-                try:
-                    url = f"{self.api_server}/v1/datasets/{dataset_id}/documents/{document_id}/segments/{segment_id}"
-                    requests.delete(url, headers=self.get_headers())
-                except Exception as e:
-                    logger.warning(f"删除段落 {segment_id} 失败: {str(e)}")
+            def delete_segment(segment_id):
+                for attempt in range(3):
+                    try:
+                        url = f"{self.api_server}/v1/datasets/{dataset_id}/documents/{document_id}/segments/{segment_id}"
+                        response = requests.delete(url, headers=self.headers)
+                        response.raise_for_status()
+                        return True
+                    except Exception as e:
+                        if attempt < 2:
+                            time.sleep(1 * (2 ** attempt) + random.uniform(0, 1))
+                        else:
+                            logger.warning(f"删除段落 {segment_id} 失败: {str(e)}")
+                            return False
             
-            return {'status': 'success'}
+            deleted_count = 0
+            failed_count = 0
+            batch_size = 100
+            
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                for i in range(0, len(segment_ids), batch_size):
+                    batch = segment_ids[i:i + batch_size]
+                    futures = {executor.submit(delete_segment, sid): sid for sid in batch}
+                    
+                    for future in as_completed(futures):
+                        if future.result():
+                            deleted_count += 1
+                        else:
+                            failed_count += 1
+                    
+                    progress = (i + len(batch)) / total_segments * 100
+                    logger.info(f"删除进度: {progress:.1f}% ({deleted_count + failed_count}/{total_segments})")
+            
+            logger.info(f"段落删除完成: 成功 {deleted_count} 个, 失败 {failed_count} 个")
+            return {'status': 'success', 'deleted': deleted_count, 'failed': failed_count}
         except Exception as e:
             return {'status': 'error', 'message': str(e)}
     
@@ -376,17 +415,26 @@ class DifySingleService:
             # 单批处理所有段落
             segments = []
             for chunk in all_chunks:
+                # 将 chunk_metadata 转换为 keywords
+                keywords = []
+                if get_config('PASS_META_TO_DIFY') and chunk.chunk_metadata:
+                    # 将 chunk_metadata 字典转换为字符串列表
+                    for key, value in chunk.chunk_metadata.items():
+                        if isinstance(value, (list, dict)):
+                            keywords.append(f"{key}:{json.dumps(value, ensure_ascii=False)}")
+                        else:
+                            keywords.append(f"{key}:{str(value)}")
+                
                 segments.append({
                     "content": chunk.content,
                     "answer": "",
-                    "keywords": [],
-                    "metadata": {}
+                    "keywords": keywords
                 })
             
             logger.info(f"正在一次性添加所有 {len(segments)} 个段落...")
             response = requests.post(
                 url,
-                headers={**self.get_headers(), 'Content-Type': 'application/json'},
+                headers=self.headers,
                 json={"segments": segments}
             )
             
