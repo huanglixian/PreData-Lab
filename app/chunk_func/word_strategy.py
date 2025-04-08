@@ -51,10 +51,6 @@ class WordChunkStrategy(BaseChunkStrategy):
             # 遍历段落
             for i, para in enumerate(doc.paragraphs):
                 try:
-                    # 每处理10个段落记录一次日志
-                    if i % 10 == 0:
-                        logger.info(f"正在处理第 {i}/{total_paragraphs} 个段落")
-                    
                     # 跳过空段落
                     if not para.text.strip():
                         continue
@@ -82,7 +78,6 @@ class WordChunkStrategy(BaseChunkStrategy):
                     # 处理普通段落
                     text = para.text
                     text_length = len(text)
-                    logger.debug(f"处理段落 {i}: 长度={text_length} 字符")
                     
                     # 如果添加这个段落会超过chunk_size，且当前chunk不为空，先输出当前chunk
                     if current_size + text_length > chunk_size and current_chunk:
@@ -95,7 +90,6 @@ class WordChunkStrategy(BaseChunkStrategy):
                         # 处理长段落
                         try:
                             para_chunks = self._chunk_long_text(text, chunk_size, overlap)
-                            logger.debug(f"段落 {i} 被分割成 {len(para_chunks)} 个子块")
                             for p_chunk in para_chunks:
                                 result_chunks.append(self._create_chunk([p_chunk], self.current_heading))
                         except Exception as e:

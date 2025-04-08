@@ -185,7 +185,7 @@ def get_metadata(self) -> Dict[str, Any]:
 
 当您按照上述约定创建了新的切块策略后，系统将自动执行以下操作：
 
-1. 在应用启动时，系统会扫描 `app/chunklab/chunking/` 目录中所有以 `_strategy.py` 结尾的文件
+1. 在应用启动时，系统会扫描 `app/chunk_func` 目录中所有以 `_strategy.py` 结尾的文件
 2. 找到并加载所有继承自 `BaseChunkStrategy` 的类
 3. 实例化这些类并获取它们的元数据
 4. 将这些策略添加到可用策略列表中，在 UI 中显示

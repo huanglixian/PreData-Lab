@@ -52,7 +52,6 @@ class ExcelDictChunkStrategy(BaseChunkStrategy):
             
             # 获取列名
             columns = df.columns.tolist()
-            logger.info(f"Excel列名: {columns}")
             
             # 转换为字典列表
             result_chunks = []

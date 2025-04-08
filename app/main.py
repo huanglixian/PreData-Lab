@@ -1,5 +1,10 @@
 # 标准库导入
 import sys
+import logging
+
+# 配置日志级别
+logging.basicConfig(level=logging.DEBUG)  # DEBUG是显示所有级别的日志，如果设置为INFO，则只显示INFO及以上级别的日志；如果设置为WARNING，则只显示WARNING及以上级别的日志
+# 设置第三方库的日志级别特殊指定的示例（设置multipart库日志级别为WARNING，不显示详细信息）：logging.getLogger("multipart").setLevel(logging.WARNING)
 
 # 第三方库导入
 from fastapi import FastAPI
