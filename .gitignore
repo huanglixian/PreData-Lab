@@ -33,3 +33,4 @@ Thumbs.db
 
 # 忽略app/chunk_func目录下的所有具体切片函数
 /app/chunk_func/*_strategy.py
+/test_code/*
