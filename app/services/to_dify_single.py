@@ -161,14 +161,17 @@ class DifySingleService:
             logger.info("等待Dify文档处理...")
             process_success = self._wait_for_document_processing(dataset_id, batch_id)
             
-            # 删除自动生成的段落
-            logger.info("正在删除自动生成的段落...")
-            segments_response = self._get_document_segments(dataset_id, dify_document_id)
-            if segments_response.get('status') == 'success':
-                segments_data = segments_response.get('data', {})
-                delete_result = self._delete_all_segments(dataset_id, dify_document_id, segments_data)
-                if delete_result.get('status') != 'success':
-                    logger.warning(f"删除段落失败: {delete_result.get('message', '未知错误')}")
+            # 根据配置决定是否删除自动生成的段落
+            if get_config('DIFY_DELETE_EXISTING_SEGMENTS'):
+                logger.info("正在删除自动生成的段落...")
+                segments_response = self._get_document_segments(dataset_id, dify_document_id)
+                if segments_response.get('status') == 'success':
+                    segments_data = segments_response.get('data', {})
+                    delete_result = self._delete_all_segments(dataset_id, dify_document_id, segments_data)
+                    if delete_result.get('status') != 'success':
+                        logger.warning(f"删除段落失败: {delete_result.get('message', '未知错误')}")
+            else:
+                logger.info("已跳过删除段落步骤，根据配置 DIFY_DELETE_EXISTING_SEGMENTS=False")
             
             # 添加自定义切块
             if chunk_count > 100:
@@ -241,8 +244,10 @@ class DifySingleService:
             file_obj = open(document.filepath, 'rb')
             files = {'file': (document.filename, file_obj, 'application/octet-stream')}
             
-            data = {'data': json.dumps({
+            # 结合父子模式和手动处理
+            json_data = {
                 "indexing_technique": "high_quality",
+                "doc_form": "hierarchical_model",  # 使用层级模型（父子模式）
                 "process_rule": {
                     "mode": "custom",
                     "rules": {
@@ -250,10 +255,20 @@ class DifySingleService:
                             {"id": "remove_extra_spaces", "enabled": True},
                             {"id": "remove_urls_emails", "enabled": True}
                         ],
-                        "segmentation": {"separator": "###", "max_tokens": 500}
+                        "segmentation": {"separator": "###", "max_tokens": 500},
+                        "parent_mode": "paragraph",  # 父段落召回模式
+                        "subchunk_segmentation": {
+                            "separator": "***",
+                            "max_tokens": 200
+                        }
                     }
                 }
-            })}
+            }
+            
+            # 记录发送的JSON数据
+            logger.info(f"发送的文档创建JSON数据: {json.dumps(json_data)}")
+            
+            data = {'data': json.dumps(json_data)}
             
             response = requests.post(
                 url,
@@ -261,6 +276,13 @@ class DifySingleService:
                 files=files,
                 data=data
             )
+            
+            # 记录响应
+            if response.status_code != 200:
+                logger.error(f"文档创建API响应错误: HTTP {response.status_code}, {response.text}")
+            else:
+                logger.info(f"文档创建成功: {response.status_code}")
+                logger.debug(f"文档创建响应: {response.text[:500]}..." if len(response.text) > 500 else response.text)
             
             response.raise_for_status()
             return {'status': 'success', 'data': response.json()}

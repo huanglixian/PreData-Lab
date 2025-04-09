@@ -39,6 +39,7 @@ APP_CONFIG = {
     'DEFAULT_CHUNK_SIZE': 300,
     'DEFAULT_OVERLAP': 30,
     'PASS_META_TO_DIFY': True,  # 是否将 meta 数据传递给 Dify
+    'DIFY_DELETE_EXISTING_SEGMENTS': False,  # 是否删除Dify文档中现有的段落
 }
 
 # 更新切块策略列表
@@ -62,4 +63,6 @@ def get_config(key=None):
         return DIFY_CONFIG['API_KEY']
     elif key == 'PASS_META_TO_DIFY':
         return APP_CONFIG['PASS_META_TO_DIFY']
+    elif key == 'DIFY_DELETE_EXISTING_SEGMENTS':
+        return APP_CONFIG['DIFY_DELETE_EXISTING_SEGMENTS']
     return APP_CONFIG.get(key, None) if key else APP_CONFIG 
