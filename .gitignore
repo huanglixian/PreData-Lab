@@ -31,5 +31,5 @@ Thumbs.db
 # 忽略日志文件
 *.log
 
-# 忽略根目录下的bak文件夹
-/bak/
+# 忽略app/chunk_func目录下的所有具体切片函数
+/app/chunk_func/*_strategy.py
