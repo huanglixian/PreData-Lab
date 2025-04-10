@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Form, BackgroundTasks, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, Form, BackgroundTasks, UploadFile, File, Query
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 import logging
 
@@ -11,8 +12,11 @@ from .. import templates
 from ..services.document import DocumentService
 from ..services.chunking import ChunkService
 from ..services.to_dify_single import DifySingleService
+from ..services.add_dify_single import add_dify_service
 
-router = APIRouter()
+router = APIRouter(
+    tags=["chunklab"],
+)
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +26,9 @@ logger = logging.getLogger(__name__)
 document_service = DocumentService()
 chunk_service = ChunkService()
 dify_service = DifySingleService()
+
+# 模板设置
+templates = Jinja2Templates(directory="app/templates")
 
 # 文档管理路由
 @router.post("/upload")
@@ -155,4 +162,15 @@ async def push_to_dify(document_id: int, dataset_id: str = Form(...), db: Sessio
 @router.get("/dify/status/{document_id}")
 async def get_dify_push_status(document_id: int, db: Session = Depends(get_db)):
     """获取文档推送到Dify的状态"""
-    return dify_service.get_push_status(document_id, db) 
+    return dify_service.get_push_status(document_id, db)
+
+# AddDify相关路由
+@router.get("/dify/files/{dataset_id}")
+async def get_dify_files(dataset_id: str, keyword: Optional[str] = None):
+    """获取Dify知识库中的文件列表，支持搜索"""
+    return add_dify_service.get_dataset_files(dataset_id, keyword)
+
+@router.post("/dify/add/{document_id}")
+async def add_to_dify_file(document_id: int, dataset_id: str = Form(...), target_file_id: str = Form(...), db: Session = Depends(get_db)):
+    """添加切片到Dify现有文件"""
+    return add_dify_service.add_to_dify_file(document_id, dataset_id, target_file_id, db) 

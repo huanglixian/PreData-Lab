@@ -1,0 +1,270 @@
+<!-- AddDify弹窗 -->
+<div class="modal fade" id="addToDifyModal" tabindex="-1" aria-labelledby="addToDifyModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addToDifyModalLabel">添加到Dify现有文件</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addToDifyForm">
+          <input type="hidden" id="addDifyDocumentId" name="document_id" value="">
+          <div class="mb-3">
+            <label for="addDifyApiServer" class="form-label">Dify API服务器地址</label>
+            <input type="text" class="form-control" id="addDifyApiServer" value="{{ dify_api_server }}" readonly>
+          </div>
+          <div class="mb-3">
+            <button type="button" class="btn btn-outline-primary w-100" id="addTestConnectionBtn">
+              <i class="fas fa-plug me-2"></i>测试连接
+            </button>
+          </div>
+          <div class="mb-3">
+            <label for="addDifyKnowledgeBase" class="form-label">选择知识库</label>
+            <select class="form-select" id="addDifyKnowledgeBase" name="dataset_id" required>
+              <option value="" selected disabled>请先测试连接</option>
+            </select>
+          </div>
+          <div class="mb-3" id="difyFileContainer" style="display: none;">
+            <label for="difyFileSearch" class="form-label">搜索并选择文件</label>
+            <input type="text" class="form-control mb-2" id="difyFileSearch" placeholder="输入关键词筛选文件...">
+            <select class="form-select" id="difyFileList" name="target_file_id" size="6" required>
+              <option value="" selected disabled>请先选择知识库</option>
+            </select>
+          </div>
+        </form>
+        <div id="addPushError" class="alert alert-danger mt-3" style="display: none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="addToDifyBtn">
+          <i class="fas fa-plus-circle me-2"></i>添加
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #difyFileList {
+    height: auto;
+    overflow-y: auto;
+  }
+  #difyFileList option {
+    padding: 8px 10px;
+    cursor: pointer;
+  }
+  #difyFileList option:hover {
+    background-color: #f8f9fa;
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // DOM元素和工具函数
+  const els = {
+    modal: document.getElementById('addToDifyModal'),
+    testBtn: document.getElementById('addTestConnectionBtn'),
+    pushBtn: document.getElementById('addToDifyBtn'),
+    errorDiv: document.getElementById('addPushError'),
+    kbSelect: document.getElementById('addDifyKnowledgeBase'),
+    fileContainer: document.getElementById('difyFileContainer'),
+    fileSearch: document.getElementById('difyFileSearch'),
+    fileList: document.getElementById('difyFileList'),
+    docId: document.getElementById('addDifyDocumentId')
+  };
+  
+  const utils = {
+    showError: msg => {
+      els.errorDiv.textContent = msg;
+      els.errorDiv.style.display = 'block';
+    },
+    toast: (type, msg) => {
+      try { window.showToast(type, msg); } 
+      catch (e) { console.log(`通知(${type}): ${msg}`); }
+    },
+    updateStatus: (id, status) => {
+      const statusEl = document.querySelector(`[data-bs-target="#addToDifyModal"][data-document-id="${id}"]`)
+        ?.closest('.document-item')?.querySelector('.dify-push-status');
+      if (!statusEl) return;
+      
+      statusEl.classList.remove('status-chunked', 'status-processing', 'status-pending');
+      statusEl.classList.add(status === 'pushing' ? 'status-processing' : 
+                          status === 'pushed' ? 'status-chunked' : 'status-pending');
+      statusEl.textContent = status === 'pushing' ? '推送中' : 
+                          status === 'pushed' ? '已推送' : '未推送';
+    }
+  };
+  
+  // 弹窗显示事件
+  els.modal.addEventListener('show.bs.modal', function(event) {
+    els.docId.value = event.relatedTarget.getAttribute('data-document-id');
+    els.errorDiv.style.display = 'none';
+    els.testBtn.innerHTML = '<i class="fas fa-plug me-2"></i>测试连接';
+    els.testBtn.classList.remove('btn-success', 'btn-danger');
+    els.testBtn.classList.add('btn-outline-primary');
+    els.testBtn.disabled = false;
+    els.kbSelect.innerHTML = '<option value="" selected disabled>请先测试连接</option>';
+    els.fileList.innerHTML = '<option value="" selected disabled>请先选择知识库</option>';
+    els.fileSearch.value = '';
+    els.fileContainer.style.display = 'none';
+  });
+  
+  // 测试连接
+  els.testBtn.addEventListener('click', function() {
+    els.testBtn.disabled = true;
+    els.testBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>测试连接中...';
+    els.errorDiv.style.display = 'none';
+    
+    fetch('/chunklab/dify/test-connection')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          els.testBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>连接成功';
+          els.testBtn.classList.replace('btn-outline-primary', 'btn-success');
+          
+          els.kbSelect.innerHTML = '<option value="" selected disabled>加载中...</option>';
+          return fetch('/chunklab/dify/knowledge-bases').then(res => res.json());
+        } else {
+          utils.showError(data.message || '连接失败');
+          els.testBtn.innerHTML = '<i class="fas fa-times-circle me-1"></i>连接失败';
+          els.testBtn.classList.replace('btn-outline-primary', 'btn-danger');
+          return Promise.reject();
+        }
+      })
+      .then(data => {
+        if (data?.status === 'success') {
+          els.kbSelect.innerHTML = '<option value="" selected disabled>请选择知识库</option>';
+          
+          (data.data.data || []).forEach(kb => {
+            const option = document.createElement('option');
+            option.value = kb.id;
+            option.textContent = kb.name;
+            els.kbSelect.appendChild(option);
+          });
+        } else {
+          utils.showError('获取知识库列表失败');
+          els.kbSelect.innerHTML = '<option value="" selected disabled>加载失败</option>';
+        }
+      })
+      .catch(() => {})
+      .finally(() => setTimeout(() => els.testBtn.disabled = false, 1000));
+  });
+  
+  // 知识库选择事件
+  els.kbSelect.addEventListener('change', function() {
+    if (!this.value) return;
+    
+    els.fileContainer.style.display = 'block';
+    els.fileList.innerHTML = '<option value="" selected disabled>加载中...</option>';
+    
+    fetch(`/chunklab/dify/files/${this.value}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.status === 'success') {
+          const files = data.data || [];
+          
+          if (files.length > 0) {
+            els.fileList.innerHTML = '';
+            files.forEach(file => {
+              const option = document.createElement('option');
+              option.value = file.id;
+              option.textContent = file.name || '未命名文件';
+              option.dataset.name = (file.name || '未命名文件').toLowerCase();
+              els.fileList.appendChild(option);
+            });
+          } else {
+            els.fileList.innerHTML = '<option value="" disabled>无文件</option>';
+          }
+        } else {
+          els.fileList.innerHTML = '<option value="" disabled>加载失败</option>';
+        }
+      })
+      .catch(() => els.fileList.innerHTML = '<option value="" disabled>加载失败</option>');
+  });
+  
+  // 文件搜索过滤
+  els.fileSearch.addEventListener('input', function() {
+    const term = this.value.trim().toLowerCase();
+    
+    Array.from(els.fileList.options).forEach(option => {
+      if (option.disabled) return;
+      
+      const name = option.dataset.name;
+      if (!name) return;
+      
+      option.style.display = name.includes(term) ? '' : 'none';
+    });
+  });
+  
+  // 添加到Dify
+  els.pushBtn.addEventListener('click', function() {
+    const docId = els.docId.value;
+    const datasetId = els.kbSelect.value;
+    const fileId = els.fileList.value;
+    
+    if (!datasetId) {
+      utils.showError('请选择知识库');
+      return;
+    }
+    
+    if (!fileId) {
+      utils.showError('请选择目标文件');
+      return;
+    }
+    
+    utils.updateStatus(docId, 'pushing');
+    
+    els.pushBtn.disabled = true;
+    els.pushBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>添加中...';
+    els.errorDiv.style.display = 'none';
+    
+    const formData = new FormData();
+    formData.append('dataset_id', datasetId);
+    formData.append('target_file_id', fileId);
+    
+    fetch(`/chunklab/dify/add/${docId}`, {
+      method: 'POST',
+      body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+      els.pushBtn.disabled = false;
+      els.pushBtn.innerHTML = '<i class="fas fa-plus-circle me-2"></i>添加';
+      
+      if (data.status === 'processing') {
+        const modalInstance = bootstrap.Modal.getInstance(els.modal);
+        modalInstance.hide();
+        
+        setTimeout(() => {
+          document.body.classList.remove('modal-open');
+          document.querySelector('.modal-backdrop')?.remove();
+          
+          utils.toast('info', '文档切片添加已开始，后台处理中...');
+          
+          let checkInterval = setInterval(() => {
+            fetch(`/chunklab/dify/status/${docId}`)
+              .then(res => res.json())
+              .then(statusData => {
+                if (statusData.status === 'pushed') {
+                  clearInterval(checkInterval);
+                  utils.toast('success', '文档切片添加成功');
+                  utils.updateStatus(docId, 'pushed');
+                }
+              })
+              .catch(() => {});
+          }, 3000);
+          
+          setTimeout(() => clearInterval(checkInterval), 60000);
+        }, 300);
+      } else {
+        utils.showError(data.message || '添加失败');
+      }
+    })
+    .catch(error => {
+      els.pushBtn.disabled = false;
+      els.pushBtn.innerHTML = '<i class="fas fa-plus-circle me-2"></i>添加';
+      utils.showError('添加失败: ' + error.message);
+    });
+  });
+});
+</script> 
