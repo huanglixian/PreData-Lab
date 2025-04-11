@@ -23,6 +23,7 @@ class DifySingleService:
         self.api_server = get_config('DIFY_API_SERVER')
         self.api_key = get_config('DIFY_API_KEY')
         self.headers = {'Authorization': f'Bearer {self.api_key}'}
+        self.base_dir = get_config('BASE_DIR') or os.getcwd()
         
     def _make_request(self, method: str, url: str, **kwargs) -> Dict[str, Any]:
         """统一的请求处理方法"""
@@ -129,18 +130,24 @@ class DifySingleService:
             chunks = db.query(Chunk).filter(Chunk.document_id == document_id).order_by(Chunk.sequence).all()
             chunk_count = len(chunks) if chunks else 0
             
-            if not chunks or not os.path.exists(document.filepath):
+            # 处理相对路径
+            filepath = document.filepath
+            if not os.path.isabs(filepath):
+                filepath = os.path.join(self.base_dir, filepath)
+            
+            if not chunks or not os.path.exists(filepath):
                 document.dify_push_status = None
                 db.commit()
+                logger.error(f"文件不存在或没有切块: {filepath}")
                 return
             
             # 记录文件大小和切块数量
-            file_size_mb = os.path.getsize(document.filepath) / 1024 / 1024
+            file_size_mb = os.path.getsize(filepath) / 1024 / 1024
             logger.info(f"开始推送文档 {document_id}，共 {chunk_count} 个切块，文件大小: {file_size_mb:.2f}MB")
             
             # 创建文档并获取ID
             logger.info("正在创建Dify文档...")
-            document_response = self._create_dify_document_by_file(document, dataset_id)
+            document_response = self._create_dify_document_by_file(document, dataset_id, filepath)
             if document_response.get('status') != 'success':
                 document.dify_push_status = None
                 db.commit()
@@ -235,13 +242,13 @@ class DifySingleService:
         else:
             return {'status': 'unknown', 'message': f'未知状态: {status}'}
     
-    def _create_dify_document_by_file(self, document: Document, dataset_id: str) -> Dict[str, Any]:
+    def _create_dify_document_by_file(self, document: Document, dataset_id: str, filepath: str) -> Dict[str, Any]:
         """使用文件创建Dify文档"""
         file_obj = None
         try:
             url = f"{self.api_server}/v1/datasets/{dataset_id}/document/create-by-file"
             
-            file_obj = open(document.filepath, 'rb')
+            file_obj = open(filepath, 'rb')
             files = {'file': (document.filename, file_obj, 'application/octet-stream')}
             
             # 结合父子模式和手动处理
