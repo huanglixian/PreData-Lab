@@ -251,24 +251,12 @@ class DifySingleService:
             file_obj = open(filepath, 'rb')
             files = {'file': (document.filename, file_obj, 'application/octet-stream')}
             
-            # 结合父子模式和手动处理
+            # 自动分段的设置
             json_data = {
                 "indexing_technique": "high_quality",
-                "doc_form": "hierarchical_model",  # 使用层级模型（父子模式）
+                "doc_form": "text_model",  # 使用普通模式
                 "process_rule": {
-                    "mode": "custom",
-                    "rules": {
-                        "pre_processing_rules": [
-                            {"id": "remove_extra_spaces", "enabled": True},
-                            {"id": "remove_urls_emails", "enabled": True}
-                        ],
-                        "segmentation": {"separator": "###", "max_tokens": 500},
-                        "parent_mode": "paragraph",  # 父段落召回模式
-                        "subchunk_segmentation": {
-                            "separator": "***",
-                            "max_tokens": 200
-                        }
-                    }
+                    "mode": "automatic"
                 }
             }
             
