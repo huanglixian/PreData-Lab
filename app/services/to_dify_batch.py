@@ -4,11 +4,12 @@ import time
 import logging
 import requests
 import os
+import asyncio
 from typing import List, Dict, Any, Optional
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import wraps
 
 from ..database import Document, Folder, BatchTask, Chunk, get_db_session
 from ..services.to_dify_single import DifySingleService
@@ -20,6 +21,27 @@ logger = logging.getLogger(__name__)
 
 # 使用已有的Dify服务
 dify_service = DifySingleService()
+
+# 重试装饰器（异步版本）
+def async_retry(max_retries=3, delay=1.0):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    retries += 1
+                    if retries < max_retries:
+                        logger.warning(f"操作失败: {str(e)}，{delay}秒后第{retries}次重试...")
+                        await asyncio.sleep(delay)
+                    else:
+                        logger.error(f"操作失败，已达最大重试次数: {str(e)}")
+                        raise
+            return None
+        return wrapper
+    return decorator
 
 class DifyBatchService:
     """批量推送到Dify服务"""
@@ -121,183 +143,258 @@ class DifyBatchService:
                              task_id: str,
                              document_ids: List[int],
                              dataset_id: str):
-        """执行批量推送到Dify任务（后台）"""
-        db = get_db_session()  # 获取新的会话
-        task = db.query(BatchTask).filter(BatchTask.id == task_id).first()
-        
-        if not task:
-            logger.error(f"任务 {task_id} 不存在")
-            return
-        
-        # 更新任务状态为处理中
-        task.status = "processing"
-        db.commit()
-        
-        # 任务结果字典
-        results = {}
-        success_count = 0
-        error_count = 0
-        
-        # 定义处理单个文档的函数
-        def process_single_document(doc_id):
-            # 每个线程需要自己的数据库连接
-            thread_db = get_db_session()
-            try:
-                document = thread_db.query(Document).filter(Document.id == doc_id).first()
-                if not document:
-                    return {"status": "failed", "error": "文档不存在", "time": datetime.now().isoformat()}
-                
-                # 如果文档未切块，则跳过
-                if document.status != "已切块":
-                    return {"status": "skipped", "error": "文档尚未切块", "time": datetime.now().isoformat()}
-                
-                # 如果文档正在被推送，则跳过
-                if document.dify_push_status == "pushing":
-                    return {"status": "skipped", "error": "文档正在被其他任务推送", "time": datetime.now().isoformat()}
-                
-                # 标记文档为推送中
-                document.dify_push_status = "pushing"
-                thread_db.commit()
-                
-                # 获取文档的切块
-                chunks = thread_db.query(Chunk).filter(Chunk.document_id == doc_id).order_by(Chunk.sequence).all()
-                if not chunks:
-                    document.dify_push_status = None  # 恢复状态
-                    thread_db.commit()
-                    return {"status": "failed", "error": "文档没有切块", "time": datetime.now().isoformat()}
-                
-                # 调用推送函数
-                logger.info(f"开始推送文档 '{document.filename}' 到Dify知识库")
-                
-                # 处理文件路径 - 支持相对路径
-                filepath = document.filepath
-                if not os.path.isabs(filepath):
-                    filepath = os.path.join(BASE_DIR, filepath)
-                
-                # 检查文件是否存在
-                if not os.path.exists(filepath):
-                    document.dify_push_status = None
-                    thread_db.commit()
-                    return {
-                        "status": "failed", 
-                        "error": f"文件不存在: {filepath}", 
-                        "time": datetime.now().isoformat()
-                    }
-                
-                # 创建文档 - 传递正确的参数
-                document_response = dify_service._create_dify_document_by_file(document, dataset_id, filepath)
-                if document_response.get("status") != "success":
-                    document.dify_push_status = None
-                    thread_db.commit()
-                    return {
-                        "status": "failed", 
-                        "error": f"创建文档失败: {document_response.get('message', '未知错误')}", 
-                        "time": datetime.now().isoformat()
-                    }
-                
-                # 获取文档ID和批次ID
-                data = document_response.get("data", {})
-                dify_document_id = None
-                if 'document' in data and 'id' in data['document']:
-                    dify_document_id = data['document']['id']
-                elif 'id' in data:
-                    dify_document_id = data['id']
-                
-                batch_id = data.get('batch', dify_document_id)
-                
-                if not dify_document_id:
-                    document.dify_push_status = None
-                    thread_db.commit()
-                    return {"status": "failed", "error": "无法获取文档ID", "time": datetime.now().isoformat()}
-                
-                # 等待文档处理完成
-                logger.info(f"文档 '{document.filename}': 等待Dify文档处理...")
-                process_success = dify_service._wait_for_document_processing(dataset_id, batch_id)
-                
-                # 删除自动生成的段落
-                logger.info(f"文档 '{document.filename}': 正在删除自动生成的段落...")
-                segments_response = dify_service._get_document_segments(dataset_id, dify_document_id)
-                if segments_response.get('status') == 'success':
-                    segments_data = segments_response.get('data', {})
-                    delete_result = dify_service._delete_all_segments(dataset_id, dify_document_id, segments_data)
-                    if delete_result.get('status') != 'success':
-                        logger.warning(f"文档 '{document.filename}': 删除段落失败: {delete_result.get('message', '未知错误')}")
-                
-                # 添加自定义切块
-                logger.info(f"文档 '{document.filename}': 正在添加 {len(chunks)} 个切块...")
-                add_response = dify_service._add_segments_to_document(chunks, dataset_id, dify_document_id)
-                if add_response.get('status') != 'success':
-                    document.dify_push_status = None
-                    thread_db.commit()
-                    return {
-                        "status": "failed", 
-                        "error": f"添加段落失败: {add_response.get('message', '未知错误')}", 
-                        "time": datetime.now().isoformat()
-                    }
-                
-                # 成功处理
-                document.dify_push_status = "pushed"
-                thread_db.commit()
-                logger.info(f"文档 '{document.filename}' 推送完成")
-                return {"status": "completed", "error": None, "time": datetime.now().isoformat()}
-                
-            except Exception as e:
-                logger.error(f"推送文档 {doc_id} 到Dify失败: {str(e)}")
-                # 如果出现异常，恢复文档状态
-                try:
-                    document = thread_db.query(Document).filter(Document.id == doc_id).first()
-                    if document and document.dify_push_status == "pushing":
-                        document.dify_push_status = None
-                        thread_db.commit()
-                except:
-                    pass
-                return {"status": "failed", "error": str(e), "time": datetime.now().isoformat()}
-            finally:
-                thread_db.close()
-        
-        # 使用线程池并发处理文档
-        max_workers = min(10, len(document_ids))  # 最多10个并发线程
-        logger.info(f"启动并发处理，最大线程数: {max_workers}")
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # 提交所有任务
-            future_to_doc_id = {executor.submit(process_single_document, doc_id): doc_id for doc_id in document_ids}
+        """执行批量推送到Dify任务（后台）- 异步版本"""
+        # 获取数据库会话
+        db = get_db_session()
+        try:
+            task = db.query(BatchTask).filter(BatchTask.id == task_id).first()
             
-            # 处理结果
-            for future in as_completed(future_to_doc_id):
-                doc_id = future_to_doc_id[future]
-                try:
-                    result = future.result()
-                    results[str(doc_id)] = result
-                    
-                    if result["status"] == "completed":
-                        success_count += 1
-                    elif result["status"] == "failed":
-                        error_count += 1
-                        
-                    # 及时更新任务状态
+            if not task:
+                logger.error(f"任务 {task_id} 不存在")
+                db.close()
+                return
+            
+            # 更新任务状态为处理中
+            task.status = "processing"
+            db.commit()
+            
+            # 任务结果字典
+            results = {}
+            success_count = 0
+            error_count = 0
+            
+            # 计算动态批次大小和并发数
+            batch_size = min(40, max(5, len(document_ids) // 2))
+            max_concurrency = min(8, len(document_ids))
+            
+            # 定义批量更新任务状态的函数
+            def update_task_status(force=False):
+                # 已处理文档数量
+                processed = success_count + error_count
+                
+                # 只有达到更新阈值或强制更新时才更新
+                if force or processed % 5 == 0 or processed == len(document_ids):
+                    nonlocal task
                     task.task_results = json.dumps(results)
                     task.success_count = success_count
                     task.error_count = error_count
                     db.commit()
                     
-                    # 每完成一个任务，就更新进度
-                    progress = int((success_count + error_count) / len(document_ids) * 100)
+                    # 计算进度
+                    progress = int(processed / len(document_ids) * 100)
                     logger.info(f"任务 {task_id} 进度: {progress}% (成功: {success_count}, 失败: {error_count})")
+            
+            # 定义处理单个文档的异步函数
+            @async_retry(max_retries=3, delay=2.0)
+            async def process_single_document(doc_id):
+                # 每个协程使用自己的数据库会话
+                thread_db = get_db_session()
+                try:
+                    document = thread_db.query(Document).filter(Document.id == doc_id).first()
+                    if not document:
+                        return {"status": "failed", "error": "文档不存在", "time": datetime.now().isoformat()}
                     
-                except Exception as exc:
-                    logger.error(f"处理文档 {doc_id} 时发生异常: {exc}")
-                    results[str(doc_id)] = {"status": "failed", "error": str(exc), "time": datetime.now().isoformat()}
-                    error_count += 1
-        
-        # 完成任务
-        task.status = "completed"
-        task.completed_at = datetime.now()
-        db.commit()
-        
-        # 关闭数据库会话
-        db.close()
-        logger.info(f"批量推送任务 {task_id} 完成，共 {len(document_ids)} 个文档，成功 {success_count} 个，失败 {error_count} 个")
+                    # 检查文档状态
+                    if document.status != "已切块":
+                        return {"status": "skipped", "error": "文档尚未切块", "time": datetime.now().isoformat()}
+                    
+                    if document.dify_push_status == "pushing":
+                        return {"status": "skipped", "error": "文档正在被其他任务推送", "time": datetime.now().isoformat()}
+                    
+                    # 标记文档为推送中
+                    document.dify_push_status = "pushing"
+                    thread_db.commit()
+                    
+                    # 获取文档的切块
+                    chunks = thread_db.query(Chunk).filter(Chunk.document_id == doc_id).order_by(Chunk.sequence).all()
+                    if not chunks:
+                        document.dify_push_status = None
+                        thread_db.commit()
+                        return {"status": "failed", "error": "文档没有切块", "time": datetime.now().isoformat()}
+                    
+                    # 调用推送函数
+                    logger.info(f"开始推送文档 '{document.filename}' 到Dify知识库")
+                    
+                    # 处理文件路径 - 支持相对路径
+                    filepath = document.filepath
+                    if not os.path.isabs(filepath):
+                        filepath = os.path.join(BASE_DIR, filepath)
+                    
+                    # 检查文件是否存在
+                    if not os.path.exists(filepath):
+                        document.dify_push_status = None
+                        thread_db.commit()
+                        return {
+                            "status": "failed", 
+                            "error": f"文件不存在: {filepath}", 
+                            "time": datetime.now().isoformat()
+                        }
+                    
+                    # 在事件循环的线程池中执行同步代码
+                    document_response = await asyncio.to_thread(
+                        dify_service._create_dify_document_by_file, 
+                        document, dataset_id, filepath
+                    )
+                    
+                    if document_response.get("status") != "success":
+                        document.dify_push_status = None
+                        thread_db.commit()
+                        return {
+                            "status": "failed", 
+                            "error": f"创建文档失败: {document_response.get('message', '未知错误')}", 
+                            "time": datetime.now().isoformat()
+                        }
+                    
+                    # 获取文档ID和批次ID
+                    data = document_response.get("data", {})
+                    dify_document_id = None
+                    if 'document' in data and 'id' in data['document']:
+                        dify_document_id = data['document']['id']
+                    elif 'id' in data:
+                        dify_document_id = data['id']
+                    
+                    batch_id = data.get('batch', dify_document_id)
+                    
+                    if not dify_document_id:
+                        document.dify_push_status = None
+                        thread_db.commit()
+                        return {"status": "failed", "error": "无法获取文档ID", "time": datetime.now().isoformat()}
+                    
+                    # 等待文档处理完成
+                    logger.info(f"文档 '{document.filename}': 等待Dify文档处理...")
+                    process_success = await asyncio.to_thread(
+                        dify_service._wait_for_document_processing, 
+                        dataset_id, batch_id
+                    )
+                    
+                    # 根据配置决定是否删除自动生成的段落
+                    if get_config('DIFY_DELETE_EXISTING_SEGMENTS'):
+                        logger.info(f"文档 '{document.filename}': 正在删除自动生成的段落...")
+                        segments_response = await asyncio.to_thread(
+                            dify_service._get_document_segments, 
+                            dataset_id, dify_document_id
+                        )
+                        
+                        if segments_response.get('status') == 'success':
+                            segments_data = segments_response.get('data', {})
+                            delete_result = await asyncio.to_thread(
+                                dify_service._delete_all_segments, 
+                                dataset_id, dify_document_id, segments_data
+                            )
+                            
+                            if delete_result.get('status') != 'success':
+                                logger.warning(f"文档 '{document.filename}': 删除段落失败: {delete_result.get('message', '未知错误')}")
+                    else:
+                        logger.info(f"文档 '{document.filename}': 已跳过删除段落步骤，根据配置 DIFY_DELETE_EXISTING_SEGMENTS=False")
+                    
+                    # 添加自定义切块
+                    logger.info(f"文档 '{document.filename}': 正在添加 {len(chunks)} 个切块...")
+                    add_response = await asyncio.to_thread(
+                        dify_service._add_segments_to_document, 
+                        chunks, dataset_id, dify_document_id
+                    )
+                    
+                    if add_response.get('status') != 'success':
+                        document.dify_push_status = None
+                        thread_db.commit()
+                        return {
+                            "status": "failed", 
+                            "error": f"添加段落失败: {add_response.get('message', '未知错误')}", 
+                            "time": datetime.now().isoformat()
+                        }
+                    
+                    # 成功处理
+                    document.dify_push_status = "pushed"
+                    thread_db.commit()
+                    logger.info(f"文档 '{document.filename}' 推送完成")
+                    return {"status": "completed", "error": None, "time": datetime.now().isoformat()}
+                    
+                except Exception as e:
+                    logger.error(f"推送文档 {doc_id} 到Dify失败: {str(e)}")
+                    # 如果出现异常，恢复文档状态
+                    try:
+                        document = thread_db.query(Document).filter(Document.id == doc_id).first()
+                        if document and document.dify_push_status == "pushing":
+                            document.dify_push_status = None
+                            thread_db.commit()
+                    except:
+                        pass
+                    # 重新抛出异常以允许重试
+                    raise
+                finally:
+                    # 关闭线程数据库会话
+                    thread_db.close()
+            
+            logger.info(f"任务 {task_id}: 共 {len(document_ids)} 个文档，批次大小 {batch_size}，并发数 {max_concurrency}")
+            
+            # 按批次处理，使用异步方式
+            for i in range(0, len(document_ids), batch_size):
+                batch = document_ids[i:i+batch_size]
+                logger.info(f"任务 {task_id}: 处理批次 {i//batch_size+1}/{(len(document_ids)+batch_size-1)//batch_size}，共 {len(batch)} 个文档")
+                
+                # 使用信号量控制并发数
+                semaphore = asyncio.Semaphore(max_concurrency)
+                
+                # 批量异步处理文档
+                async def process_with_semaphore(doc_id):
+                    async with semaphore:
+                        return doc_id, await process_single_document(doc_id)
+                
+                # 创建所有任务
+                tasks = [process_with_semaphore(doc_id) for doc_id in batch]
+                
+                # 等待所有任务完成
+                batch_results = {}
+                for completed_task in asyncio.as_completed(tasks):
+                    try:
+                        doc_id, result = await completed_task
+                        batch_results[str(doc_id)] = result
+                        
+                        if result["status"] == "completed":
+                            success_count += 1
+                        elif result["status"] == "failed":
+                            error_count += 1
+                            
+                        # 更新结果
+                        results.update(batch_results)
+                        update_task_status()
+                        
+                    except Exception as e:
+                        logger.error(f"处理文档时发生异常: {str(e)}")
+                        # 由于无法获取doc_id，这里无法更新特定文档的结果
+                        error_count += 1
+                
+                # 批次处理完成后强制更新一次任务状态
+                update_task_status(force=True)
+                
+                # 批次间短暂休息
+                if i + batch_size < len(document_ids):
+                    await asyncio.sleep(1)
+            
+            # 完成任务
+            task.status = "completed"
+            task.completed_at = datetime.now()
+            task.task_results = json.dumps(results)
+            task.success_count = success_count
+            task.error_count = error_count
+            db.commit()
+            
+            logger.info(f"批量推送任务 {task_id} 完成，共 {len(document_ids)} 个文档，成功 {success_count} 个，失败 {error_count} 个")
+        except Exception as e:
+            # 如果发生异常，记录错误
+            logger.error(f"批量处理任务 {task_id} 失败: {str(e)}")
+            try:
+                # 尝试更新任务状态为失败
+                task = db.query(BatchTask).filter(BatchTask.id == task_id).first()
+                if task:
+                    task.status = "failed"
+                    task.error_message = str(e)
+                    db.commit()
+            except:
+                pass
+        finally:
+            # 关闭数据库连接
+            db.close()
     
     def get_task_status(self, task_id: str, db: Session) -> Dict[str, Any]:
         """获取任务状态"""

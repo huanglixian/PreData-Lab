@@ -4,6 +4,7 @@ import uuid
 import logging
 import time
 import shutil
+import asyncio
 from fastapi import BackgroundTasks, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
@@ -183,86 +184,159 @@ class BatchChunkingService:
                               chunk_strategy: str, 
                               chunk_size: int, 
                               overlap: int):
-        """执行批量切片任务（后台）"""
+        """执行批量切片任务（后台）- 异步版本"""
         db = get_db_session()  # 获取新的会话
-        task = db.query(BatchTask).filter(BatchTask.id == task_id).first()
-        
-        if not task:
-            logger.error(f"任务 {task_id} 不存在")
-            return
-        
-        # 更新任务状态为处理中
-        task.status = "processing"
-        db.commit()
-        
-        # 任务结果字典
-        results = {}
-        success_count = 0
-        error_count = 0
-        
-        # 处理每个文档
-        for doc_id in document_ids:
-            document = None
-            try:
-                document = db.query(Document).filter(Document.id == doc_id).first()
-                if not document:
-                    results[str(doc_id)] = {"status": "failed", "error": "文档不存在", "time": datetime.now().isoformat()}
-                    error_count += 1
-                    continue
-                
-                # 如果文档正在处理中，则跳过
-                if document.status == "处理中":
-                    results[str(doc_id)] = {"status": "skipped", "error": "文档正在被其他任务处理", "time": datetime.now().isoformat()}
-                    continue
-                
-                # 标记文档为处理中
-                document.status = "处理中"
-                db.commit()
-                
-                # 调用ChunkService的切块功能
-                logger.info(f"开始处理文档 {document.filename}")
-                chunk_service._process_chunks(
-                    document_id=doc_id,
-                    chunk_strategy=chunk_strategy,
-                    chunk_size=chunk_size,
-                    overlap=overlap
-                )
-                
-                # 处理成功
-                results[str(doc_id)] = {"status": "completed", "error": None, "time": datetime.now().isoformat()}
-                success_count += 1
-                logger.info(f"文档 {document.filename} 处理完成")
-                
-            except Exception as e:
-                error_msg = str(e)
-                logger.error(f"处理文档 ID:{doc_id} 失败: {error_msg}")
-                results[str(doc_id)] = {"status": "failed", "error": error_msg, "time": datetime.now().isoformat()}
-                error_count += 1
-                
-                # 如果出现异常，将文档状态改回未处理
-                if document:
-                    try:
-                        document.status = "未切块"
-                        db.commit()
-                    except Exception as db_error:
-                        logger.error(f"更新文档状态失败: {str(db_error)}")
+        try:
+            task = db.query(BatchTask).filter(BatchTask.id == task_id).first()
             
-            # 更新任务状态
+            if not task:
+                logger.error(f"任务 {task_id} 不存在")
+                db.close()
+                return
+            
+            # 更新任务状态为处理中
+            task.status = "processing"
+            db.commit()
+            
+            # 任务结果字典
+            results = {}
+            success_count = 0
+            error_count = 0
+            
+            # 计算并发数和批次大小
+            max_concurrency = min(8, len(document_ids))
+            batch_size = min(20, max(5, len(document_ids) // 2))
+            
+            # 创建信号量控制并发
+            semaphore = asyncio.Semaphore(max_concurrency)
+            
+            # 定义更新任务状态的函数
+            def update_task_status(force=False):
+                processed = success_count + error_count
+                if force or processed % 5 == 0 or processed == len(document_ids):
+                    nonlocal task
+                    task.task_results = json.dumps(results)
+                    task.success_count = success_count
+                    task.error_count = error_count
+                    db.commit()
+                    progress = int(processed / len(document_ids) * 100)
+                    logger.info(f"任务 {task_id} 进度: {progress}% (成功: {success_count}, 失败: {error_count})")
+            
+            # 定义处理单个文档的异步函数
+            async def process_single_document(doc_id):
+                async with semaphore:  # 使用信号量控制并发
+                    # 每个协程使用自己的数据库会话
+                    thread_db = get_db_session()
+                    try:
+                        document = thread_db.query(Document).filter(Document.id == doc_id).first()
+                        if not document:
+                            return {"status": "failed", "error": "文档不存在", "time": datetime.now().isoformat()}
+                        
+                        # 如果文档正在处理中，则跳过
+                        if document.status == "处理中":
+                            return {"status": "skipped", "error": "文档正在被其他任务处理", "time": datetime.now().isoformat()}
+                        
+                        # 标记文档为处理中
+                        document.status = "处理中"
+                        thread_db.commit()
+                        
+                        # 异步调用切块功能
+                        logger.info(f"开始处理文档 {document.filename}")
+                        await asyncio.to_thread(
+                            chunk_service._process_chunks,
+                            document_id=doc_id,
+                            chunk_strategy=chunk_strategy,
+                            chunk_size=chunk_size,
+                            overlap=overlap
+                        )
+                        
+                        # 处理成功
+                        return {"status": "completed", "error": None, "time": datetime.now().isoformat()}
+                        
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.error(f"处理文档 ID:{doc_id} 失败: {error_msg}")
+                        
+                        # 如果出现异常，将文档状态改回未处理
+                        try:
+                            document = thread_db.query(Document).filter(Document.id == doc_id).first()
+                            if document and document.status == "处理中":
+                                document.status = "未切块"
+                                thread_db.commit()
+                        except Exception as db_error:
+                            logger.error(f"更新文档状态失败: {str(db_error)}")
+                            
+                        return {"status": "failed", "error": error_msg, "time": datetime.now().isoformat()}
+                    finally:
+                        # 关闭数据库会话
+                        thread_db.close()
+            
+            logger.info(f"任务 {task_id}: 共 {len(document_ids)} 个文档，并发数 {max_concurrency}，批次大小 {batch_size}")
+            
+            # 按批次处理，使用异步方式
+            for i in range(0, len(document_ids), batch_size):
+                batch = document_ids[i:i+batch_size]
+                batch_num = i // batch_size + 1
+                total_batches = (len(document_ids) + batch_size - 1) // batch_size
+                logger.info(f"任务 {task_id}: 处理批次 {batch_num}/{total_batches}，共 {len(batch)} 个文档")
+                
+                # 创建当前批次的任务列表
+                tasks = [process_single_document(doc_id) for doc_id in batch]
+                
+                # 处理完成的任务
+                batch_results = {}
+                for doc_id, future in zip(batch, await asyncio.gather(*tasks, return_exceptions=True)):
+                    if isinstance(future, Exception):
+                        # 处理异常情况
+                        logger.error(f"处理文档 {doc_id} 时发生异常: {str(future)}")
+                        batch_results[str(doc_id)] = {
+                            "status": "failed", 
+                            "error": str(future), 
+                            "time": datetime.now().isoformat()
+                        }
+                        error_count += 1
+                    else:
+                        # 处理正常结果
+                        batch_results[str(doc_id)] = future
+                        if future["status"] == "completed":
+                            logger.info(f"文档 ID:{doc_id} 处理完成")
+                            success_count += 1
+                        elif future["status"] == "failed":
+                            error_count += 1
+                
+                # 更新批次结果
+                results.update(batch_results)
+                update_task_status(force=True)
+                
+                # 批次间短暂休息
+                if i + batch_size < len(document_ids):
+                    await asyncio.sleep(0.5)
+            
+            # 完成任务
+            task.status = "completed"
+            task.completed_at = datetime.now()
             task.task_results = json.dumps(results)
             task.success_count = success_count
             task.error_count = error_count
             db.commit()
             
-            # 添加短暂延迟避免系统过载
-            time.sleep(0.2)
-        
-        # 完成任务
-        task.status = "completed"
-        task.completed_at = datetime.now()
-        db.commit()
-        
-        # 关闭数据库会话
-        db.close()
+            logger.info(f"批量切块任务 {task_id} 完成，共 {len(document_ids)} 个文档，成功 {success_count} 个，失败 {error_count} 个")
+            
+        except Exception as e:
+            # 如果发生异常，记录错误
+            logger.error(f"批量处理任务 {task_id} 失败: {str(e)}")
+            try:
+                # 尝试更新任务状态为失败
+                task = db.query(BatchTask).filter(BatchTask.id == task_id).first()
+                if task:
+                    task.status = "failed"
+                    task.error_message = str(e)
+                    db.commit()
+            except:
+                pass
+        finally:
+            # 关闭数据库连接
+            db.close()
     
     def get_task_status(self, task_id: str, db: Session) -> Dict[str, Any]:
         """获取任务状态"""

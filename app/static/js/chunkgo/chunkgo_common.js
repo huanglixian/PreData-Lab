@@ -39,7 +39,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.status === 'completed' || data.status === 'failed') {
                         clearInterval(intervalId);
-                        window.location.reload();
+                        // 任务完成时显示通知，延迟刷新页面以确保通知显示
+                        const statusText = data.status === 'completed' ? '已完成' : '失败';
+                        const title = `任务${statusText}：${data.name}`;
+                        const message = `成功: ${data.success_count}，失败: ${data.error_count}`;
+                        
+                        // 使用SweetAlert2显示通知，并在用户关闭或自动关闭后刷新页面
+                        Swal.fire({
+                            icon: data.status === 'completed' ? 'success' : 'error',
+                            title: title,
+                            text: message,
+                            timer: 3000,
+                            showConfirmButton: false,
+                            willClose: () => {
+                                window.location.reload();
+                            }
+                        });
                     }
                 })
                 .catch(error => {
