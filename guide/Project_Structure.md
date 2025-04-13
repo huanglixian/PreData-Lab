@@ -1,9 +1,9 @@
-# PreDataLab 项目结构
+# ChunkSpace 项目结构
 
 PreDataLab（ChunkSpace（切块工作室））有如下功能：
 1、切片函数管理（Chunk-Func）：管理和上传自定义切片策略，创建和部署新的切片函数。
 2、切片核心实验室（Chunk-Lab）：将不同格式的文档，通过不同的切片策略，进行切片实验。
-3、切片批量处理（Chunk-Go）：进行批量文档切片，并批量推送至Dify知识库。（规划中）
+3、切片批量处理（Chunk-Go）：进行批量文档切片，并批量推送至Dify知识库。
 
 本文档描述了项目的整体结构和各个文件的功能，旨在帮助开发者快速了解项目架构。
 
@@ -16,15 +16,30 @@ PreDataLab/
 │   ├── routers/              # 路由模块
 │   │   ├── __init__.py         # 初始化路由模块
 │   │   ├── base.py             # 基础路由和主页
-│   │   ├── chunklab.py         # ChunkLab 相关路由
-│   │   └── chunkfunc.py        # ChunkFunc 相关路由（策略管理）
+│   │   ├── chunklab.py         # ChunkLab的路由（单个文件切片和ToDify）
+│   │   ├── chunkgo.py          # ChunkGo的路由（批处理切片和批量ToDify）
+│   │   └── chunkfunc.py        # ChunkFunc的路由（切片函数管理）
 │   ├── services/             # 服务模块
 │   │   ├── __init__.py         # 初始化服务模块
 │   │   ├── document.py         # 文档处理服务（上传和删除等）
 │   │   ├── chunking.py         # 切块服务
-│   │   ├── to_dify_single.py   # 单文件推送Dify平台的集成服务
+│   │   ├── add_dify_single.py  # 向Dify某文件添加切片的服务（不创建文档）
+│   │   ├── to_dify_single.py   # 单文件推送Dify平台服务
+│   │   ├── to_dify_batch.py    # 批量文件推送至Dify平台服务
+│   │   ├── batch_chunking.py   # 批量文档切块服务
+│   │   ├── folder_manager.py   # 文件夹管理服务
 │   │   └── func_manager.py     # 切片函数管理服务
 │   ├── static/              # 静态资源（CSS、JS、图片等）
+│   │   ├── css/               # CSS样式文件
+│   │   │   └── chunkgo_batchdocs.css  # ChunkGo批量文档样式
+│   │   └── js/                # JavaScript脚本文件
+│   │       ├── chunklab_chunk.js     # ChunkLab切块页面脚本
+│   │       ├── chunklab_index.js     # ChunkLab首页脚本
+│   │       └── chunkgo/             # ChunkGo脚本文件夹
+│   │           ├── chunkgo_upload.js    # 文件上传脚本
+│   │           ├── chunkgo_common.js    # 公共函数脚本
+│   │           ├── chunkgo_dify.js      # Dify集成脚本
+│   │           └── chunkgo_chunking.js  # 批量切块脚本
 │   ├── templates/           # 页面模板（Jinja2）
 │   │   ├── base.html          # 基础模板文件
 │   │   ├── index.html         # 主页模板
@@ -32,6 +47,9 @@ PreDataLab/
 │   │   │   ├── index.html     # ChunkLab主页
 │   │   │   ├── chunk.html     # 文档切块页面
 │   │   │   └── to_dify_box.html # Dify集成页面
+│   │   ├── chunkgo/           # ChunkGo模块模板
+│   │   │   ├── index.html     # ChunkGo主页（新建文件夹）
+│   │   │   └── batchdocs.html # 批量文档处理页面
 │   │   └── chunkfunc/         # ChunkFunc模块模板
 │   │       ├── index.html     # 切块函数管理主页
 │   │       ├── strategy_list.html # 切块函数列表
@@ -47,6 +65,7 @@ PreDataLab/
 │   ├── QuickStart.md            # 快速上手指南
 │   ├── Chunk_Strategy_Guide.md  # 切块函数-开发文档
 │   ├── template_strategy.py     # 切块函数-代码模板
+│   ├── chunklab_helper.py       # ChunkLab辅助函数
 │   └── Project_Structure.md     # 本文档，项目结构描述
 ├── .env                     # 环境配置文件
 ├── .env.example             # 环境配置示例
@@ -83,16 +102,41 @@ PreDataLab/
 
 - **__init__.py** - 初始化路由模块，统一注册各模块路由
 - **base.py** - 基础路由和主页，包括系统主页和实验室入口
-- **chunklab.py** - ChunkLab相关路由，包括文档管理、切块操作和Dify集成
-- **chunkfunc.py** - ChunkFunc相关路由，处理切块策略的管理（上传、查看、删除）
+- **chunklab.py** - ChunkLab的路由（单个文件切片和ToDify）
+- **chunkgo.py** - ChunkGo的路由（批处理切片和批量ToDify）
+- **chunkfunc.py** - ChunkFunc的路由（切片函数管理）
 
 #### app/services/ - 服务模块
 
 - **__init__.py** - 初始化服务模块
 - **document.py** - 文档处理服务，负责文档上传、解析和删除等
 - **chunking.py** - 切块服务，处理文档分块逻辑和切块任务管理
-- **to_dify_single.py** - 与Dify平台集成的服务，处理数据推送和同步
+- **add_dify_single.py** - 向Dify某文件添加切片的服务（不创建文档）
+- **to_dify_single.py** - 单文件推送Dify平台服务
+- **to_dify_batch.py** - 批量文件推送至Dify平台服务
+- **batch_chunking.py** - 批量文档切块服务，处理多文档的同时切块处理
+- **folder_manager.py** - 文件夹管理服务，处理文件和目录的管理
 - **func_manager.py** - 策略管理服务，处理切块策略的验证、保存和管理
+
+#### app/static/ - 静态资源
+
+包含CSS、JavaScript等静态资源文件：
+
+##### app/static/css/ - CSS样式文件
+
+- **chunkgo_batchdocs.css** - ChunkGo批量文档处理页面的样式文件
+
+##### app/static/js/ - JavaScript脚本文件
+
+- **chunklab_chunk.js** - ChunkLab切块页面的交互脚本
+- **chunklab_index.js** - ChunkLab首页的交互脚本
+
+##### app/static/js/chunkgo/ - ChunkGo模块脚本
+
+- **chunkgo_upload.js** - 批量文件上传的处理脚本
+- **chunkgo_common.js** - ChunkGo模块共用函数
+- **chunkgo_dify.js** - 批量推送至Dify的交互脚本
+- **chunkgo_chunking.js** - 批量切块处理的交互脚本
 
 #### app/templates/ - 页面模板
 
@@ -107,15 +151,16 @@ Jinja2模板文件目录，用于渲染HTML页面：
 - **chunk.html** - 文档切块页面，展示切块结果和切块参数配置界面
 - **to_dify_box.html** - Dify集成页面，用于配置和发送数据到Dify平台
 
+##### app/templates/chunkgo/ - ChunkGo模块模板
+
+- **index.html** - ChunkGo主页（新建文件夹）
+- **batchdocs.html** - 批量文档处理页面，用于处理多个文档并推送至Dify
+
 ##### app/templates/chunkfunc/ - ChunkFunc模块模板
 
 - **index.html** - 切块函数管理主页，展示和管理切块策略
 - **strategy_list.html** - 切块函数列表部分模板
 - **view.html** - 切块函数详情页面，展示策略代码和元数据
-
-#### app/static/ - 静态资源
-
-包含 CSS、JavaScript、图片等静态资源文件
 
 ### data/ 目录 - 数据存储
 
@@ -127,6 +172,7 @@ Jinja2模板文件目录，用于渲染HTML页面：
 - **QuickStart.md** - 快速上手指南
 - **Chunk_Strategy_Guide.md** - 切块函数开发文档
 - **template_strategy.py** - 切块函数代码模板
+- **chunklab_helper.py** - ChunkLab辅助函数库，提供各种帮助函数
 - **Project_Structure.md** - 本文档，项目结构描述
 
 ## 技术架构
@@ -161,6 +207,13 @@ Jinja2模板文件目录，用于渲染HTML页面：
 - 切块任务异步处理
 - 可视化预览切块结果
 - 元数据保留（如标题层级、页码等）
+
+### 批量处理模块 (ChunkGo)
+
+- 批量文档上传和管理
+- 批量切块处理
+- 批量推送至Dify平台
+- 批量处理状态监控和管理
 
 ### 策略管理模块 (ChunkFunc)
 

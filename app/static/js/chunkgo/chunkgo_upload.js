@@ -198,6 +198,41 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // 批量删除按钮
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    if (batchDeleteBtn) {
+        batchDeleteBtn.addEventListener('click', function() {
+            const selectedDocs = Array.from(document.querySelectorAll('.document-checkbox:checked'))
+                .filter(checkbox => !checkbox.disabled)
+                .map(checkbox => {
+                    return {
+                        id: checkbox.value,
+                        name: checkbox.closest('.document-item').querySelector('.document-name').textContent
+                    };
+                });
+            
+            if (selectedDocs.length === 0) {
+                showToast('warning', '请选择要删除的文档');
+                return;
+            }
+            
+            Swal.fire({
+                title: '确认批量删除',
+                text: `确定要删除选中的 ${selectedDocs.length} 个文档吗？此操作不可恢复！`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#732626',
+                cancelButtonColor: '#34495e',
+                confirmButtonText: '确定删除',
+                cancelButtonText: '取消'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    batchDeleteDocuments(selectedDocs);
+                }
+            });
+        });
+    }
+    
     // 删除文档
     function deleteDocument(docId) {
         fetch(`/chunklab/documents/${docId}`, {
@@ -221,5 +256,55 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             showToast('error', '删除文档失败: ' + error.message);
         });
+    }
+    
+    // 批量删除文档
+    function batchDeleteDocuments(documents) {
+        let deletePromises = documents.map(doc => {
+            return fetch(`/chunklab/documents/${doc.id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                return {
+                    id: doc.id,
+                    success: data.status === 'success',
+                    message: data.message
+                };
+            })
+            .catch(error => {
+                return {
+                    id: doc.id,
+                    success: false,
+                    message: error.message
+                };
+            });
+        });
+        
+        Promise.all(deletePromises)
+            .then(results => {
+                const successCount = results.filter(r => r.success).length;
+                const failCount = results.length - successCount;
+                
+                if (successCount > 0) {
+                    // 移除已删除的文档元素
+                    results.forEach(result => {
+                        if (result.success) {
+                            const docElement = document.querySelector(`.document-item input[value="${result.id}"]`).closest('.document-item');
+                            if (docElement) {
+                                docElement.remove();
+                            }
+                        }
+                    });
+                    
+                    if (failCount > 0) {
+                        showToast('warning', `成功删除 ${successCount} 个文档，${failCount} 个文档删除失败`);
+                    } else {
+                        showToast('success', `成功删除 ${successCount} 个文档`);
+                    }
+                } else {
+                    showToast('error', '批量删除失败');
+                }
+            });
     }
 }); 

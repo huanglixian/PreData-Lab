@@ -86,7 +86,7 @@ class DocumentService:
                 logger.warning(f"文档不存在: ID {document_id}")
                 return JSONResponse(
                     status_code=404,
-                    content={"message": "文档不存在"}
+                    content={"status": "error", "message": "文档不存在"}
                 )
             
             # 删除文件
@@ -104,12 +104,12 @@ class DocumentService:
             
             return JSONResponse(
                 status_code=200,
-                content={"message": "文档已删除"}
+                content={"status": "success", "message": "文档已删除"}
             )
             
         except Exception as e:
             logger.error(f"删除文档失败: {str(e)}")
             return JSONResponse(
                 status_code=500,
-                content={"message": f"删除文档失败: {str(e)}"}
+                content={"status": "error", "message": f"删除文档失败: {str(e)}"}
             ) 

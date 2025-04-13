@@ -193,26 +193,12 @@
                                     <span class="document-status {% if document.status == '已切块' %}status-chunked{% elif document.status == '处理中' %}status-processing{% else %}status-pending{% endif %}">
                                         {{ document.status }}
                                     </span>
-                                    {% if document.status == '已切块' %}
-                                    <span class="mx-2">|</span>
-                                    <span class="document-status 
-                                        {% if document.dify_push_status == 'pushed' %}status-chunked{% elif document.dify_push_status == 'pushing' %}status-processing{% else %}status-pending{% endif %} dify-push-status">
-                                        {% if document.dify_push_status == 'pushed' %}已推送{% elif document.dify_push_status == 'pushing' %}推送中{% else %}未推送{% endif %}
-                                    </span>
-                                    {% endif %}
                                 </div>
                             </div>
                             <div class="col-lg-6 text-end action-buttons">
                                 <a href="/chunklab/documents/{{ document.id }}/chunk" class="btn btn-primary btn-sm">
                                     <i class="fas fa-cut me-1"></i>切块/查看
                                 </a>
-                                {% if document.status == '已切块' and document.dify_push_status != 'pushing' %}
-                                <button type="button" class="btn btn-info btn-sm" 
-                                        data-bs-toggle="modal" data-bs-target="#singleToDifyModal"
-                                        data-document-id="{{ document.id }}">
-                                    <i class="fas fa-cloud-upload-alt me-1"></i>ToDify
-                                </button>
-                                {% endif %}
                                 <button type="button" class="btn btn-danger btn-sm" 
                                         onclick="confirmDelete('/chunklab/documents/{{ document.id }}', '{{ document.filename }}')">
                                     <i class="fas fa-trash-alt me-1"></i>删除
@@ -234,9 +220,6 @@
 
 <!-- 隐藏元素用于存储允许的文件扩展名 -->
 <div id="allowedExtensions" data-extensions="{{ allowed_extensions }}" style="display: none;"></div>
-
-<!-- 引入ToDify弹窗 -->
-{% include "chunklab/to_dify_box.html" %}
 {% endblock %}
 
 {% block extra_js %}

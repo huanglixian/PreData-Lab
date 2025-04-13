@@ -123,7 +123,7 @@
             
             {% if folders %}
                 <div class="folders-list">
-                    {% for folder in folders %}
+                    {% for folder in folders|sort(attribute='create_time', reverse=True) %}
                     <div class="folder-item" data-folder-id="{{ folder.id }}">
                         <div class="folder-icon">
                             <i class="fas fa-folder"></i>
