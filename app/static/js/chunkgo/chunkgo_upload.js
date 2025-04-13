@@ -91,11 +91,98 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function handleDrop(e) {
         const dt = e.dataTransfer;
-        const files = dt.files;
         
-        if (files.length > 0) {
-            uploadFiles(files);
+        // 检查是否包含目录
+        if (dt.items && dt.items.length > 0) {
+            const items = dt.items;
+            let allFiles = [];
+            let pendingItems = 0;
+            
+            // 获取所有文件（包括目录中的文件）
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i].webkitGetAsEntry();
+                
+                if (item) {
+                    if (item.isFile) {
+                        pendingItems++;
+                        // 如果是文件直接添加
+                        item.file(function(file) {
+                            allFiles.push(file);
+                            pendingItems--;
+                            
+                            if (pendingItems === 0) {
+                                uploadFiles(allFiles);
+                            }
+                        });
+                    } else if (item.isDirectory) {
+                        // 如果是目录，遍历目录
+                        traverseDirectory(item, allFiles, function() {
+                            pendingItems--;
+                            if (pendingItems === 0) {
+                                uploadFiles(allFiles);
+                            }
+                        });
+                        pendingItems++;
+                    }
+                }
+            }
+        } else {
+            // 兼容不支持webkitGetAsEntry的浏览器
+            const files = dt.files;
+            if (files.length > 0) {
+                uploadFiles(files);
+            }
         }
+    }
+    
+    // 遍历目录，获取目录中的所有文件
+    function traverseDirectory(directory, files, callback) {
+        const reader = directory.createReader();
+        let entriesChunk = [];
+        
+        // 递归读取目录内容
+        const readEntries = function() {
+            reader.readEntries(function(entries) {
+                if (entries.length === 0) {
+                    // 处理当前批次的条目
+                    processEntries(entriesChunk, files, callback);
+                } else {
+                    entriesChunk = entriesChunk.concat(Array.from(entries));
+                    readEntries();
+                }
+            });
+        };
+        
+        readEntries();
+    }
+    
+    // 处理目录中的条目（文件或子目录）
+    function processEntries(entries, files, callback) {
+        let pendingEntries = entries.length;
+        
+        if (pendingEntries === 0) {
+            callback();
+            return;
+        }
+        
+        entries.forEach(function(entry) {
+            if (entry.isFile) {
+                entry.file(function(file) {
+                    files.push(file);
+                    pendingEntries--;
+                    if (pendingEntries === 0) {
+                        callback();
+                    }
+                });
+            } else if (entry.isDirectory) {
+                traverseDirectory(entry, files, function() {
+                    pendingEntries--;
+                    if (pendingEntries === 0) {
+                        callback();
+                    }
+                });
+            }
+        });
     }
     
     // 上传文件到服务器
