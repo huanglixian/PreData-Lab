@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import hashlib
 from datetime import datetime
+from typing import List, Tuple
 
 from ..database import Document, Chunk
 from ..config import APP_CONFIG, UPLOADS_DIR
@@ -114,3 +115,17 @@ class DocumentService:
                 status_code=500,
                 content={"status": "error", "message": f"删除文档失败: {str(e)}"}
             ) 
+    
+    def clean_missing_documents(self, documents: List[Document], db: Session) -> List[Document]:
+        """清理物理文件不存在的文档记录"""
+        valid_docs = [doc for doc in documents if os.path.exists(doc.filepath)]
+        
+        # 找出需要删除的文档ID
+        if len(valid_docs) < len(documents):
+            missing_ids = [doc.id for doc in documents if not os.path.exists(doc.filepath)]
+            # 批量删除
+            db.query(Chunk).filter(Chunk.document_id.in_(missing_ids)).delete(synchronize_session=False)
+            db.query(Document).filter(Document.id.in_(missing_ids)).delete(synchronize_session=False)
+            db.commit()
+            
+        return valid_docs

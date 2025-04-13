@@ -46,6 +46,9 @@ async def index(request: Request, db: Session = Depends(get_db)):
         ~Document.filepath.like(f"{UPLOADS_DIR}/%/%")
     ).order_by(Document.upload_time.desc()).all()
     
+    # 清理不存在的文件记录
+    documents = document_service.clean_missing_documents(documents, db)
+    
     return templates.TemplateResponse(
         "chunklab/index.html",
         {
