@@ -40,14 +40,8 @@ async def redirect_to_index():
 @router.get("/index")
 async def index(request: Request, db: Session = Depends(get_db)):
     """ChunkLab首页 - 文档上传和列表"""
-    # 只获取uploads目录直接下的文档，不包括子文件夹
-    documents = db.query(Document).filter(
-        Document.filepath.like(f"{UPLOADS_DIR}/%") & 
-        ~Document.filepath.like(f"{UPLOADS_DIR}/%/%")
-    ).order_by(Document.upload_time.desc()).all()
-    
-    # 清理不存在的文件记录
-    documents = document_service.clean_missing_documents(documents, db)
+    # 获取uploads根目录下的文档
+    documents = document_service.get_root_documents(db)
     
     return templates.TemplateResponse(
         "chunklab/index.html",

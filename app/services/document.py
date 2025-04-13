@@ -129,3 +129,12 @@ class DocumentService:
             db.commit()
             
         return valid_docs
+
+    def get_root_documents(self, db: Session) -> List[Document]:
+        """获取uploads根目录下的文档（不包括子文件夹）"""
+        documents = db.query(Document).filter(
+            Document.filepath.like(f"{UPLOADS_DIR}/%") & 
+            ~Document.filepath.like(f"{UPLOADS_DIR}/%/%")
+        ).order_by(Document.upload_time.desc()).all()
+        
+        return self.clean_missing_documents(documents, db)
