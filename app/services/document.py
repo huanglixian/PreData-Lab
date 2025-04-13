@@ -29,13 +29,14 @@ class DocumentService:
                     content={"message": f"不支持的文件类型。允许的类型: {', '.join(APP_CONFIG['ALLOWED_EXTENSIONS'])}"}
                 )
             
-            # 处理文件名和路径
-            new_filename = filename
-            file_path = UPLOADS_DIR / filename
+            # 移除文件名中可能包含的路径分隔符，确保文件直接保存在UPLOADS_DIR
+            safe_filename = os.path.basename(filename)
+            new_filename = safe_filename
+            file_path = UPLOADS_DIR / safe_filename
             
             if os.path.exists(file_path):
                 timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                name, ext = os.path.splitext(filename)
+                name, ext = os.path.splitext(safe_filename)
                 new_filename = f"{name}_{timestamp}{ext}"
                 file_path = UPLOADS_DIR / new_filename
             

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Form, BackgroundTasks, UploadFile, File, Query
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List, Optional
@@ -7,7 +7,7 @@ from datetime import datetime
 import logging
 
 from ..database import get_db, Document, Chunk
-from ..config import APP_CONFIG, get_config
+from ..config import APP_CONFIG, get_config, UPLOADS_DIR
 from .. import templates
 from ..services.document import DocumentService
 from ..services.chunking import ChunkService
@@ -15,6 +15,7 @@ from ..services.to_dify_single import DifySingleService
 from ..services.add_dify_single import add_dify_service
 
 router = APIRouter(
+    prefix="/chunklab",
     tags=["chunklab"],
 )
 
@@ -29,6 +30,32 @@ dify_service = DifySingleService()
 
 # 模板设置
 templates = Jinja2Templates(directory="app/templates")
+
+# 主页路由
+@router.get("/", response_class=RedirectResponse)
+async def redirect_to_index():
+    """重定向到ChunkLab首页"""
+    return RedirectResponse(url="/chunklab/index")
+
+@router.get("/index")
+async def index(request: Request, db: Session = Depends(get_db)):
+    """ChunkLab首页 - 文档上传和列表"""
+    # 只获取uploads目录直接下的文档，不包括子文件夹
+    documents = db.query(Document).filter(
+        Document.filepath.like(f"{UPLOADS_DIR}/%") & 
+        ~Document.filepath.like(f"{UPLOADS_DIR}/%/%")
+    ).order_by(Document.upload_time.desc()).all()
+    
+    return templates.TemplateResponse(
+        "chunklab/index.html",
+        {
+            "request": request,
+            "documents": documents,
+            "allowed_extensions": ", ".join(APP_CONFIG['ALLOWED_EXTENSIONS']),
+            "now": datetime.now,
+            "dify_api_server": get_config('DIFY_API_SERVER')
+        }
+    )
 
 # 文档管理路由
 @router.post("/upload")

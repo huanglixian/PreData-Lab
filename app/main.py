@@ -41,7 +41,7 @@ Base.metadata.create_all(bind=engine)
 
 # 注册路由
 app.include_router(base_router)
-app.include_router(chunklab_router, prefix="/chunklab", tags=["chunklab"])
+app.include_router(chunklab_router)
 app.include_router(chunkfunc_router, prefix="/chunkfunc", tags=["chunkfunc"])
 app.include_router(chunkgo_router, prefix="/chunkgo", tags=["chunkgo"])
 
